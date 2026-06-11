@@ -1,0 +1,549 @@
+/* =========================================================
+   FIFA World Cup 2026 Tracker — Estilos
+   Tema oscuro con acentos dorados y FIFA 2026 branding
+   ========================================================= */
+
+/* ── Variables globales ─────────────────────────────────── */
+:root {
+  --fifa-red:    #CC0000;
+  --fifa-gold:   #FFB900;
+  --fifa-dark:   #0D0D1A;
+  --fifa-darker: #07071000;
+  --fifa-blue:   #002868;
+  --card-bg:     rgba(255 255 255 / 5%);
+  --card-hover:  rgba(255 255 255 / 9%);
+  --border:      rgba(255 255 255 / 10%);
+  --text-1:      #FFFFFF;
+  --text-2:      #AAAACC;
+  --text-3:      #666688;
+  --radius:      12px;
+  --shadow:      0 4px 24px rgba(0 0 0 / 50%);
+  --transition:  0.2s ease;
+}
+
+/* ── Reset básico ───────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: var(--fifa-dark);
+  color: var(--text-1);
+  min-height: 100vh;
+  line-height: 1.5;
+}
+img { display: block; max-width: 100%; }
+button { cursor: pointer; border: none; background: none; }
+
+/* ── Header ─────────────────────────────────────────────── */
+.site-header {
+  background: linear-gradient(135deg, #0A0A18 0%, #1a0000 50%, #0A0A18 100%);
+  border-bottom: 2px solid var(--fifa-gold);
+  padding: 0 1rem;
+  position: sticky; top: 0; z-index: 100;
+  box-shadow: var(--shadow);
+}
+.header-inner {
+  max-width: 1200px; margin: 0 auto;
+  display: flex; align-items: center; gap: 1rem;
+  padding: 0.75rem 0;
+  flex-wrap: wrap;
+}
+.header-logo {
+  display: flex; align-items: center; gap: 0.75rem;
+}
+.logo-badge {
+  background: var(--fifa-gold);
+  color: #000;
+  font-weight: 900;
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  line-height: 1.2;
+  text-align: center;
+}
+.logo-badge span { display: block; }
+.logo-title {
+  display: flex; flex-direction: column;
+}
+.logo-title h1 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-1);
+  letter-spacing: 0.02em;
+}
+.logo-title p {
+  font-size: 0.75rem;
+  color: var(--fifa-gold);
+  letter-spacing: 0.1em;
+}
+.header-actions {
+  margin-left: auto;
+  display: flex; align-items: center; gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+/* ── Selector de idioma ─────────────────────────────────── */
+.lang-btn {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  padding: 0.35rem 0.65rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  transition: var(--transition);
+}
+.lang-btn.active, .lang-btn:hover {
+  background: var(--fifa-gold);
+  color: #000;
+  border-color: var(--fifa-gold);
+}
+
+/* ── Selector de zona horaria ───────────────────────────── */
+.tz-select {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  padding: 0.35rem 0.65rem;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  max-width: 200px;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23AAA'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.6rem center;
+  padding-right: 1.8rem;
+  cursor: pointer;
+}
+.tz-select option { background: #1a1a2e; color: var(--text-1); }
+.tz-select:hover { border-color: var(--fifa-gold); }
+
+/* ── Botón Actualizar ───────────────────────────────────── */
+.btn-update {
+  background: linear-gradient(135deg, var(--fifa-red), #990000);
+  color: #fff;
+  padding: 0.45rem 1rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  display: flex; align-items: center; gap: 0.4rem;
+  transition: var(--transition);
+  box-shadow: 0 2px 10px rgba(204 0 0 / 40%);
+}
+.btn-update:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(204 0 0 / 60%); }
+.btn-update:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+.btn-update .spin { animation: spin 0.8s linear infinite; display: none; }
+.btn-update.loading .spin { display: inline; }
+.btn-update.loading .icon-update { display: none; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Botón Cómprame una cerveza ──────────────────────────── */
+.btn-beer {
+  background: linear-gradient(135deg, #f5a623, #e8930a);
+  color: #000;
+  padding: 0.4rem 0.85rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-decoration: none;
+  display: flex; align-items: center; gap: 0.3rem;
+  transition: var(--transition);
+  box-shadow: 0 2px 8px rgba(245 166 35 / 40%);
+}
+.btn-beer:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(245 166 35 / 60%); }
+
+/* ── Navegación de pestañas ─────────────────────────────── */
+.tab-nav {
+  background: rgba(0 0 0 / 30%);
+  border-bottom: 1px solid var(--border);
+  display: flex; overflow-x: auto;
+  scrollbar-width: none;
+}
+.tab-nav::-webkit-scrollbar { display: none; }
+.tab-nav-inner {
+  max-width: 1200px; margin: 0 auto;
+  display: flex; gap: 0;
+  width: 100%;
+}
+.tab-btn {
+  color: var(--text-2);
+  padding: 0.75rem 1.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border-bottom: 3px solid transparent;
+  transition: var(--transition);
+  white-space: nowrap;
+  position: relative;
+}
+.tab-btn:hover { color: var(--text-1); }
+.tab-btn.active {
+  color: var(--fifa-gold);
+  border-bottom-color: var(--fifa-gold);
+}
+/* Badge de partidos en vivo */
+.live-badge {
+  background: var(--fifa-red);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 0.1rem 0.35rem;
+  border-radius: 10px;
+  margin-left: 0.3rem;
+  vertical-align: middle;
+  animation: pulse-badge 1.5s infinite;
+}
+@keyframes pulse-badge { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
+
+/* ── Contenido principal ────────────────────────────────── */
+.main-content {
+  max-width: 1200px; margin: 0 auto;
+  padding: 1.5rem 1rem;
+}
+
+/* ── Barra de filtros ───────────────────────────────────── */
+.filter-bar {
+  display: flex; align-items: center; gap: 0.75rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+.filter-label { font-size: 0.8rem; color: var(--text-3); font-weight: 600; }
+.group-filter-btn {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  padding: 0.3rem 0.7rem;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  transition: var(--transition);
+}
+.group-filter-btn:hover, .group-filter-btn.active {
+  background: var(--fifa-gold);
+  color: #000;
+  border-color: var(--fifa-gold);
+}
+
+/* ── Bloque de fecha ────────────────────────────────────── */
+.date-block { margin-bottom: 2rem; }
+.date-header {
+  display: flex; align-items: center; gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+.date-label {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-1);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.date-sub { font-size: 0.75rem; color: var(--text-3); margin-left: auto; }
+
+/* ── Tarjeta de partido ──────────────────────────────────── */
+.match-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.85rem 1.1rem;
+  margin-bottom: 0.65rem;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 0.5rem;
+  transition: var(--transition);
+  cursor: pointer;
+}
+.match-card:hover { background: var(--card-hover); border-color: rgba(255 255 255 / 20%); }
+.match-card.live {
+  border-color: var(--fifa-red);
+  box-shadow: 0 0 0 1px var(--fifa-red), 0 4px 20px rgba(204 0 0 / 20%);
+}
+.match-card.finished { opacity: 0.85; }
+
+/* ── Equipo dentro de la tarjeta ────────────────────────── */
+.team-block {
+  display: flex; align-items: center; gap: 0.6rem;
+}
+.team-block.away { flex-direction: row-reverse; text-align: right; }
+.team-flag {
+  width: 36px; height: 27px;
+  object-fit: cover;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.team-flag-placeholder {
+  width: 36px; height: 27px;
+  background: var(--card-bg);
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.6rem; color: var(--text-3);
+}
+.team-name {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-1);
+}
+.team-tla { display: none; }
+
+/* ── Marcador central ───────────────────────────────────── */
+.match-score {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 0.2rem; min-width: 90px;
+}
+.score-main {
+  font-size: 1.5rem; font-weight: 800;
+  color: var(--text-1);
+  letter-spacing: 0.05em;
+}
+.score-dash { color: var(--text-3); }
+.score-ht {
+  font-size: 0.65rem; color: var(--text-3);
+  background: var(--card-bg);
+  border-radius: 4px; padding: 0.1rem 0.4rem;
+}
+.match-time {
+  font-size: 0.8rem; font-weight: 700;
+  color: var(--fifa-gold);
+}
+.match-status-badge {
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+}
+.badge-scheduled { background: rgba(255 255 255 / 8%); color: var(--text-3); }
+.badge-live      { background: var(--fifa-red); color: #fff; animation: pulse-badge 1.5s infinite; }
+.badge-finished  { background: rgba(0 200 100 / 15%); color: #00cc66; }
+.badge-paused    { background: rgba(255 165 0 / 20%); color: #ffaa00; }
+.badge-postponed { background: rgba(150 150 150 / 15%); color: var(--text-3); }
+
+.match-meta {
+  font-size: 0.7rem; color: var(--text-3);
+  display: flex; align-items: center; gap: 0.3rem;
+}
+
+/* ── Vista rápida de tarjeta (mobile) ──────────────────── */
+.match-extra {
+  display: none;
+  grid-column: 1 / -1;
+  font-size: 0.75rem; color: var(--text-3);
+  padding-top: 0.4rem;
+  border-top: 1px solid var(--border);
+  margin-top: 0.2rem;
+}
+.match-card.expanded .match-extra { display: flex; gap: 1rem; flex-wrap: wrap; }
+
+/* ── Tabla de posiciones ─────────────────────────────────── */
+.groups-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 1.25rem;
+}
+.group-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.group-card-header {
+  background: linear-gradient(135deg, var(--fifa-blue), #001840);
+  padding: 0.65rem 1rem;
+  display: flex; align-items: center; gap: 0.5rem;
+}
+.group-letter {
+  background: var(--fifa-gold);
+  color: #000;
+  font-weight: 900;
+  font-size: 1rem;
+  width: 2rem; height: 2rem;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 6px;
+}
+.group-title { font-weight: 700; font-size: 0.9rem; }
+.standings-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+.standings-table th {
+  padding: 0.4rem 0.5rem;
+  color: var(--text-3);
+  font-weight: 600;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  text-align: center;
+  border-bottom: 1px solid var(--border);
+}
+.standings-table th:first-child { text-align: left; padding-left: 0.75rem; }
+.standings-table td {
+  padding: 0.55rem 0.5rem;
+  text-align: center;
+  border-bottom: 1px solid rgba(255 255 255 / 4%);
+}
+.standings-table tr:last-child td { border-bottom: none; }
+.standings-table td:first-child { text-align: left; padding-left: 0.75rem; }
+.standings-table tr:hover td { background: rgba(255 255 255 / 4%); }
+
+/* Posición con calificación visual */
+.pos-cell { font-weight: 800; color: var(--text-3); width: 1.5rem; }
+.pos-1, .pos-2 { color: var(--fifa-gold); }
+.pos-3         { color: #66aaff; }
+
+.pts-cell { font-weight: 800; color: var(--text-1); }
+.gd-cell.positive { color: #00cc66; }
+.gd-cell.negative { color: var(--fifa-red); }
+
+.st-team {
+  display: flex; align-items: center; gap: 0.5rem;
+}
+.st-flag {
+  width: 24px; height: 18px;
+  object-fit: cover; border-radius: 2px;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.st-name { font-weight: 600; }
+.st-tla  { font-size: 0.7rem; color: var(--text-3); }
+
+/* ── Banner de aviso (modo demo / sin API key) ──────────── */
+.info-banner {
+  background: rgba(255 185 0 / 12%);
+  border: 1px solid rgba(255 185 0 / 30%);
+  color: var(--fifa-gold);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  font-size: 0.82rem;
+  display: flex; align-items: center; gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+
+/* ── Toast de notificación ──────────────────────────────── */
+.toast {
+  position: fixed; bottom: 1.5rem; right: 1.5rem;
+  background: #1a1a2e;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.8rem 1.2rem;
+  font-size: 0.85rem;
+  max-width: 320px;
+  box-shadow: var(--shadow);
+  transform: translateY(100px); opacity: 0;
+  transition: all 0.3s ease;
+  z-index: 9999;
+}
+.toast.show { transform: translateY(0); opacity: 1; }
+.toast.success { border-color: #00cc66; color: #00cc66; }
+.toast.error   { border-color: var(--fifa-red); color: #ff6666; }
+
+/* ── Estado vacío ───────────────────────────────────────── */
+.empty-state {
+  text-align: center; padding: 3rem 1rem;
+  color: var(--text-3);
+}
+.empty-state h3 { font-size: 1.2rem; margin-bottom: 0.5rem; color: var(--text-2); }
+.empty-state p  { font-size: 0.88rem; }
+
+/* ── Indicador de última actualización ─────────────────── */
+.last-updated-bar {
+  font-size: 0.72rem; color: var(--text-3);
+  text-align: right; margin-bottom: 0.5rem;
+  display: flex; align-items: center; justify-content: flex-end; gap: 0.4rem;
+}
+.dot-live {
+  width: 7px; height: 7px;
+  background: var(--fifa-red);
+  border-radius: 50%;
+  animation: pulse-badge 1.5s infinite;
+}
+
+/* ── Footer ─────────────────────────────────────────────── */
+.site-footer {
+  border-top: 1px solid var(--border);
+  padding: 1.5rem 1rem;
+  text-align: center;
+  color: var(--text-3);
+  font-size: 0.78rem;
+}
+.site-footer a { color: var(--fifa-gold); text-decoration: none; }
+.site-footer a:hover { text-decoration: underline; }
+
+/* ── Spinner de carga ───────────────────────────────────── */
+.loading-overlay {
+  display: flex; align-items: center; justify-content: center;
+  padding: 3rem;
+  color: var(--text-3);
+  gap: 0.75rem;
+}
+.spinner {
+  width: 28px; height: 28px;
+  border: 3px solid var(--border);
+  border-top-color: var(--fifa-gold);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* ── Modal de detalle ───────────────────────────────────── */
+.modal-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0 0 0 / 70%);
+  z-index: 1000;
+  align-items: center; justify-content: center;
+  padding: 1rem;
+}
+.modal-overlay.open { display: flex; }
+.modal-box {
+  background: #14142a;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1.5rem;
+  max-width: 500px; width: 100%;
+  box-shadow: var(--shadow);
+}
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 1rem;
+}
+.modal-title { font-weight: 700; font-size: 1rem; }
+.modal-close {
+  color: var(--text-3); font-size: 1.4rem; line-height: 1;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px; transition: var(--transition);
+}
+.modal-close:hover { background: var(--card-hover); color: var(--text-1); }
+
+/* ── Responsive ─────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .team-name { font-size: 0.78rem; }
+  .score-main { font-size: 1.2rem; }
+  .tab-btn { padding: 0.65rem 0.9rem; font-size: 0.82rem; }
+  .groups-grid { grid-template-columns: 1fr; }
+  .header-actions { gap: 0.35rem; }
+  .btn-beer span { display: none; }
+  .match-card { padding: 0.65rem 0.75rem; }
+  .team-tla { display: inline; font-size: 0.7rem; color: var(--text-3); }
+  .team-name.full { display: none; }
+}
+
+@media (max-width: 400px) {
+  .tz-select { max-width: 140px; font-size: 0.7rem; }
+}
+
+/* ── Animación de entrada de tarjetas ────────────────────── */
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.match-card, .group-card {
+  animation: fadeSlideIn 0.3s ease both;
+}
+.match-card:nth-child(n+2) { animation-delay: calc(0.04s * var(--i, 0)); }

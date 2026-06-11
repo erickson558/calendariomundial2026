@@ -1,0 +1,76 @@
+name: Release Automático
+
+# Se ejecuta cuando se hace push de un tag con formato Vx.x.x
+on:
+  push:
+    tags:
+      - 'V*.*.*'
+
+jobs:
+  release:
+    name: Crear GitHub Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # Necesario para crear releases y subir assets
+
+    steps:
+      # 1. Descargar el código fuente
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      # 2. Leer la versión del tag actual
+      - name: Extraer versión del tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      # 3. Leer las notas del CHANGELOG para esta versión
+      - name: Extraer notas del CHANGELOG
+        id: changelog
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          # Extrae el bloque de la versión del CHANGELOG.md
+          NOTES=$(awk "/## \[$VERSION\]/{flag=1; next} /## \[V/{flag=0} flag" CHANGELOG.md)
+          if [ -z "$NOTES" ]; then
+            NOTES="Versión $VERSION — Ver CHANGELOG.md para detalles."
+          fi
+          # Escapar saltos de línea para GitHub Actions
+          echo "NOTES<<EOF" >> $GITHUB_OUTPUT
+          echo "$NOTES"    >> $GITHUB_OUTPUT
+          echo "EOF"        >> $GITHUB_OUTPUT
+
+      # 4. Crear el archivo ZIP del proyecto (excluyendo DB y archivos privados)
+      - name: Crear ZIP del release
+        run: |
+          zip -r "worldcup2026-${{ steps.version.outputs.VERSION }}.zip" . \
+            --exclude "*.db" \
+            --exclude "*.sqlite" \
+            --exclude "backend/config.local.php" \
+            --exclude ".git/*" \
+            --exclude "*.log" \
+            --exclude "data/worldcup2026.db"
+
+      # 5. Crear el release en GitHub con el ZIP adjunto
+      - name: Crear GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "FIFA World Cup 2026 Tracker ${{ steps.version.outputs.VERSION }}"
+          body: |
+            ## FIFA World Cup 2026 Tracker ${{ steps.version.outputs.VERSION }}
+
+            ${{ steps.changelog.outputs.NOTES }}
+
+            ---
+            ### Instalación Rápida
+            1. Descargar `worldcup2026-${{ steps.version.outputs.VERSION }}.zip`
+            2. Extraer en `EasyPHP/www/monitoreos/calendariomundial2026/`
+            3. Abrir `http://localhost/monitoreos/calendariomundial2026/`
+            4. Opcional: crear `backend/config.local.php` con tu API Key de football-data.org
+
+            ### API Key Gratuita
+            Registrarse en https://www.football-data.org/client/register
+
+            ---
+            ☕ [Cómprame una Cerveza](https://www.paypal.com/donate/?hosted_button_id=ZABFRXC2P3JQN)
+          files: "worldcup2026-${{ steps.version.outputs.VERSION }}.zip"
+          draft: false
+          prerelease: false
