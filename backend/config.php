@@ -33,7 +33,10 @@ define('DEMO_MODE', false);
 
 // ── Zona horaria por defecto ─────────────────────────────
 // El frontend puede sobreescribir esto vía localStorage.
+// date_default_timezone_set evita el warning de PHP 5.x cuando php.ini
+// no tiene date.timezone configurado (comun en instalaciones locales).
 define('DEFAULT_TIMEZONE', 'UTC');
+date_default_timezone_set('UTC');
 
 // ── Overrides locales ─────────────────────────────────────
 if (file_exists(__DIR__ . '/config.local.php')) {
