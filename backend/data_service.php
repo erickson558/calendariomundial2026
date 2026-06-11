@@ -3,196 +3,184 @@
  * =========================================================
  * FIFA World Cup 2026 — Servicio de Datos (Business Logic)
  * =========================================================
+ * Compatible con PHP 5.4+ (sin type hints, sin arrow functions)
  *
- * Orquesta la sincronización entre la API pública de ESPN
- * (sin registro) y la base de datos local SQLite.
+ * Orquesta Fetcher + Database:
+ *  - refreshData(): baja de ESPN y persiste en SQLite con TTL de cache
+ *  - buildPayload(): prepara el JSON que consume el frontend SPA
  *
- * Flujo de actualización:
- *   1. Verificar caché (CACHE_TTL / CACHE_TTL_LIVE)
- *   2. Si caché expiró → Fetcher::getMatches() + getStandings()
- *   3. Persistir via Database::upsertMatch() / upsertStanding()
- *   4. Registrar timestamp en settings
- *
- * Primera carga (DB vacía):
- *   Usa Fetcher::getAllMatches() para traer las 9 semanas del torneo.
+ * La logica de negocio esta separada del HTTP (Fetcher) y del storage
+ * (Database) para poder testear y reutilizar cada capa de forma independiente.
  */
 
-require_once __DIR__ . '/config.php';
-require_once __DIR__ . '/database.php';
-require_once __DIR__ . '/fetcher.php';
+require_once dirname(__FILE__) . '/config.php';
+require_once dirname(__FILE__) . '/database.php';
+require_once dirname(__FILE__) . '/fetcher.php';
 
 class DataService {
 
-    // ── Sincronización ──────────────────────────────────────
+    // ── Actualizacion ─────────────────────────────────────
 
     /**
-     * Descarga y persiste los datos más recientes de ESPN.
+     * Descarga partidos y posiciones de ESPN y los persiste en SQLite.
+     * Respeta un TTL de cache: 300s en condiciones normales, 60s si hay
+     * partidos en vivo (para mantener los marcadores actualizados).
      *
-     * Gestión del caché:
-     *   - Si hay partidos EN VIVO: caché de 60s (CACHE_TTL_LIVE)
-     *   - En otro caso: 300s (CACHE_TTL)
-     *   - Si el caché es válido: responde inmediatamente sin tocar la red
-     *
-     * Primera carga (DB vacía): descarga todo el torneo.
-     * Cargas siguientes: solo ±10 días alrededor de hoy.
-     *
-     * @return array ['success'=>bool, 'message'=>string, 'updated'=>int]
+     * Devuelve true si se actualizo, false si el cache aun es valido.
      */
-    public static function refreshData(): array {
-        // Verificar caché antes de tocar la red
-        $lastUpdated = Database::getSetting('last_updated');
+    public static function refreshData() {
+        $lastUpdated = Database::getSetting('last_updated', '');
+        $isDemo      = Database::getSetting('is_demo', '0');
+
+        // Determinar TTL segun si hay partidos en vivo
+        $ttl = CACHE_TTL;
+        if (self::hasLiveMatches()) {
+            $ttl = CACHE_TTL_LIVE;
+        }
+
+        // Cache aun valido: no hacer requests a ESPN
         if ($lastUpdated) {
-            $elapsed = time() - strtotime($lastUpdated);
-            $ttl     = self::hasLiveMatches() ? CACHE_TTL_LIVE : CACHE_TTL;
-            if ($elapsed < $ttl) {
-                return [
-                    'success' => true,
-                    'message' => "Cache válido. Próxima actualización disponible en " . ($ttl - $elapsed) . "s.",
-                    'updated' => 0,
-                ];
+            $age = time() - strtotime($lastUpdated);
+            if ($age < $ttl) {
+                return false;
             }
         }
 
-        $updated  = 0;
-        $teamIdx  = Database::getTeamNameIndex();
-        $isFirst  = ((int) Database::getSetting('total_matches', '0')) === 0;
+        // Intentar obtener datos de ESPN
+        $matches   = Fetcher::getAllMatches();
+        $standings = Fetcher::getStandings();
 
-        try {
-            // ── Paso 1: Partidos ──────────────────────────
-            // Primera carga → traer todo el torneo; actualización → solo rango activo
-            $matches = $isFirst
-                ? Fetcher::getAllMatches()
-                : Fetcher::getMatches();
-
-            foreach ($matches as $match) {
-                Database::upsertMatch($match, $teamIdx);
-                $updated++;
-                // Actualizar el índice de nombres en tiempo real para nuevos equipos
-                if ($updated % 10 === 0) {
-                    $teamIdx = Database::getTeamNameIndex();
-                }
-            }
-
-            // Guardar el total de partidos conocidos para detectar la "primera carga"
-            $totalNow = (int) Database::connect()->query("SELECT COUNT(*) FROM matches")->fetchColumn();
-            Database::setSetting('total_matches', (string) $totalNow);
-
-            // ── Paso 2: Posiciones ────────────────────────
-            // ESPN devuelve array plano; cada entrada ya trae su grupo resuelto.
-            try {
-                $teamIdx   = Database::getTeamNameIndex();
-                $standings = Fetcher::getStandings();
-                foreach ($standings as $entry) {
-                    $group = $entry['group'] ?? null;
-                    if ($group) {
-                        Database::upsertStanding($entry, $group, $teamIdx);
-                    }
-                }
-            } catch (RuntimeException $e) {
-                // Las posiciones pueden no estar disponibles al inicio del torneo
-                error_log("Standings fetch warning: " . $e->getMessage());
-            }
-
-            // Registrar última sincronización exitosa
-            Database::setSetting('last_updated', date('c'));
-            Database::setSetting('is_demo',      '0');
-
-            return [
-                'success' => true,
-                'message' => $isFirst
-                    ? "Torneo completo cargado: $updated partidos."
-                    : "Actualizados $updated partidos.",
-                'updated' => $updated,
-            ];
-
-        } catch (RuntimeException $e) {
-            // Si la API falla por primera vez, activamos el modo demo
-            if ($isFirst) {
+        // Sin datos: activar modo demo (ESPN caido o torneo no iniciado)
+        if (empty($matches)) {
+            if ($isDemo !== '1') {
                 Database::setSetting('is_demo', '1');
             }
-            return [
-                'success' => false,
-                'message' => "ESPN API: " . $e->getMessage(),
-                'updated' => $updated,
-            ];
+            Database::setSetting('last_updated', date('c'));
+            return false;
         }
-    }
 
-    // ── Consultas ──────────────────────────────────────────
+        // Con datos: desactivar modo demo y persistir
+        Database::setSetting('is_demo', '0');
 
-    /**
-     * Devuelve partidos agrupados por fecha UTC.
-     * El frontend re-agrupa por fecha LOCAL del usuario en app.js.
-     *
-     * @param string|null $group Filtrar por grupo (A–L)
-     */
-    public static function getMatchesGrouped(?string $group = null): array {
-        $matches = Database::getMatches($group);
-        $grouped = [];
+        $teamIdx = Database::getTeamNameIndex();
 
         foreach ($matches as $match) {
-            $dateKey = substr($match['match_date'] ?? '', 0, 10);
+            Database::upsertMatch($match, $teamIdx);
+        }
+
+        // Refrescar indice porque upsertMatch puede haber insertado nuevos equipos
+        $teamIdx = Database::getTeamNameIndex();
+
+        foreach ($standings as $row) {
+            $group = isset($row['group']) ? $row['group'] : '';
+            Database::upsertStanding($row, $group, $teamIdx);
+        }
+
+        Database::setSetting('last_updated', date('c'));
+        return true;
+    }
+
+    // ── Consultas para el Frontend ────────────────────────
+
+    /**
+     * Partidos agrupados por fecha (UTC).
+     * El frontend los re-agrupa por fecha LOCAL del usuario con Intl.DateTimeFormat.
+     */
+    public static function getMatchesGrouped($group) {
+        $matches = Database::getMatches($group);
+        $grouped = array();
+
+        foreach ($matches as $match) {
+            $raw     = isset($match['match_date']) ? $match['match_date'] : '';
+            $dateKey = substr($raw, 0, 10);  // solo la parte YYYY-MM-DD
             if (!$dateKey) continue;
+            if (!isset($grouped[$dateKey])) {
+                $grouped[$dateKey] = array();
+            }
             $grouped[$dateKey][] = $match;
         }
 
-        ksort($grouped);
+        ksort($grouped);  // ordenar por fecha ascendente
         return $grouped;
     }
 
-    /** Partidos cuya fecha UTC es hoy */
-    public static function getTodayMatches(): array {
-        $today   = date('Y-m-d');
+    /**
+     * Partidos programados para hoy (en UTC).
+     * El frontend puede reinterpretar "hoy" segun la zona del usuario,
+     * pero este filtro base usa UTC para consistencia del servidor.
+     */
+    public static function getTodayMatches() {
         $matches = Database::getMatches();
-        return array_values(array_filter($matches, fn($m) =>
-            substr($m['match_date'] ?? '', 0, 10) === $today
-        ));
+        $today   = gmdate('Y-m-d');  // fecha UTC del servidor
+
+        // PHP 5.4 no tiene arrow functions (fn() =>), se usa funcion anonima
+        $filtered = array_filter($matches, function($m) use ($today) {
+            $raw = isset($m['match_date']) ? $m['match_date'] : '';
+            return substr($raw, 0, 10) === $today;
+        });
+
+        return array_values($filtered);
     }
 
     /** Posiciones agrupadas por letra de grupo */
-    public static function getGroupStandings(): array {
+    public static function getGroupStandings() {
         $rows    = Database::getStandings();
-        $grouped = [];
+        $grouped = array();
+
         foreach ($rows as $row) {
-            if ($row['group_name']) $grouped[$row['group_name']][] = $row;
+            $g = isset($row['group_name']) ? $row['group_name'] : '';
+            if (!$g) continue;
+            if (!isset($grouped[$g])) {
+                $grouped[$g] = array();
+            }
+            $grouped[$g][] = $row;
         }
+
         ksort($grouped);
         return $grouped;
     }
 
-    // ── Metadatos ──────────────────────────────────────────
+    // ── Estado del Sistema ────────────────────────────────
+
+    /** Devuelve metadata sobre el estado de sincronizacion */
+    public static function getStatus() {
+        return array(
+            'last_updated' => Database::getSetting('last_updated', ''),
+            'demo_mode'    => (bool)(int)Database::getSetting('is_demo', '0'),
+            'version'      => APP_VERSION,
+        );
+    }
+
+    /** true si hay algun partido EN_VIVO en la BD (controla TTL de cache) */
+    public static function hasLiveMatches() {
+        $live = Database::getMatches(null, 'IN_PLAY');
+        if (!empty($live)) return true;
+        $paused = Database::getMatches(null, 'PAUSED');
+        return !empty($paused);
+    }
+
+    // ── Payload para el Frontend ─────────────────────────
 
     /**
-     * Metadatos que el frontend usa para mostrar estado de la app.
-     * has_live activa el auto-refresh cada 60s en app.js.
+     * Construye el JSON completo que consume app.js.
+     * Incluye: partidos-hoy, partidos-todos agrupados, posiciones,
+     * indicador de vivos, estado de sync y metadata.
+     *
+     * El parametro $group filtra los partidos por grupo (A-L) o null = todos.
      */
-    public static function getStatus(): array {
-        return [
-            'version'      => APP_VERSION,
-            'demo_mode'    => (bool)(int)(Database::getSetting('is_demo', '0') ?? '0'),
-            'api_key_set'  => true,          // ESPN no necesita API Key
-            'last_updated' => Database::getSetting('last_updated', ''),
-            'has_live'     => self::hasLiveMatches(),
-            'data_source'  => 'ESPN (sin registro)',
-        ];
-    }
+    public static function buildPayload($group) {
+        $today     = self::getTodayMatches();
+        $all       = self::getMatchesGrouped($group);
+        $standings = self::getGroupStandings();
+        $status    = self::getStatus();
+        $hasLive   = self::hasLiveMatches();
 
-    /** True cuando hay partidos IN_PLAY o PAUSED en la DB */
-    public static function hasLiveMatches(): bool {
-        $count = Database::connect()
-            ->query("SELECT COUNT(*) FROM matches WHERE status IN ('IN_PLAY','PAUSED')")
-            ->fetchColumn();
-        return $count > 0;
-    }
-
-    /** Payload completo para el frontend */
-    public static function buildPayload(?string $groupFilter = null): array {
-        return [
-            'status'    => self::getStatus(),
-            'matches'   => self::getMatchesGrouped($groupFilter),
-            'today'     => self::getTodayMatches(),
-            'standings' => self::getGroupStandings(),
-            'teams'     => Database::getAllTeams(),
-        ];
+        return array(
+            'today'      => $today,
+            'all'        => $all,
+            'standings'  => $standings,
+            'has_live'   => $hasLive,
+            'status'     => $status,
+        );
     }
 }

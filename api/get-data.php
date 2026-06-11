@@ -29,11 +29,11 @@ try {
     // Construir y devolver el payload completo
     echo json_encode(DataService::buildPayload($group), JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
 
-} catch (Throwable $e) {
+} catch (Exception $e) {
     // Devolver error estructurado para que el frontend lo muestre
     http_response_code(500);
-    echo json_encode([
+    echo json_encode(array(
         'error'   => true,
         'message' => $e->getMessage(),
-    ], JSON_UNESCAPED_UNICODE);
+    ), JSON_UNESCAPED_UNICODE);
 }

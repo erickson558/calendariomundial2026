@@ -5,6 +5,24 @@ Versionado según [Semantic Versioning](https://semver.org/lang/es/) — `Vx.x.x
 
 ---
 
+## [V1.2.0] — 2026-06-11
+
+### Corregido
+- **Compatibilidad PHP 5.4**: reescritura completa de todo el backend para eliminar sintaxis que requería PHP 7.0+ / 8.0+
+  - `private const` → `const` en clases (PHP 7.1+ no disponible en EasyPHP 14)
+  - Typed properties `?PDO` → variables sin tipo (PHP 7.4+)
+  - Type hints escalares y return types → eliminados (PHP 7.0+)
+  - Operador `??` → reemplazado con `isset()` ternarios (PHP 7.0+)
+  - Arrow functions `fn() =>` → funciones anonimas con `use` (PHP 7.4+)
+  - `str_contains()` → `strpos() !== false` (PHP 8.0+)
+  - Separadores numéricos `250_000` → `250000` (PHP 7.4+)
+  - `Throwable` → `Exception` en todos los catch (PHP 7.0+)
+  - SQL UPSERT `ON CONFLICT DO UPDATE` → SELECT + UPDATE/INSERT (SQLite 3.24+)
+- **Comentario de cron** en `update-results.php`: el literal `*/` cerraba el docblock provocando parse error; cambiado a descripción textual
+- **refreshData()** ahora devuelve bool en lugar de array; `update-results.php` corregido en consecuencia
+
+---
+
 ## [V1.1.0] — 2026-06-11
 
 ### Cambiado

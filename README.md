@@ -2,8 +2,8 @@
 
 > Calendario completo, resultados en tiempo real y tabla de posiciones de la **Copa del Mundo FIFA 2026** (USA · México · Canadá).
 
-[![Version](https://img.shields.io/badge/version-V1.0.0-gold)](CHANGELOG.md)
-[![PHP](https://img.shields.io/badge/PHP-7.4%2B-blue)](https://php.net)
+[![Version](https://img.shields.io/badge/version-V1.2.0-gold)](CHANGELOG.md)
+[![PHP](https://img.shields.io/badge/PHP-5.4%2B-blue)](https://php.net)
 [![License](https://img.shields.io/badge/license-Apache%202.0-green)](LICENSE)
 
 ---
@@ -23,7 +23,7 @@
 
 ## Requisitos
 
-- **PHP** 7.4 o superior con extensiones `pdo_sqlite` y `curl` habilitadas
+- **PHP** 5.4 o superior con extensiones `pdo_sqlite` y `curl` habilitadas (compatible con EasyPHP 14.1b2)
 - **EasyPHP** (o cualquier servidor web PHP: XAMPP, WAMP, Apache)
 - **Conexión a internet** (usa la API pública de ESPN, **sin registro ni API Key**)
 
