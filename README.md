@@ -23,9 +23,9 @@
 
 ## Requisitos
 
-- **PHP** 7.4 o superior con extensión `pdo_sqlite` y `curl` habilitadas
-- **EasyPHP** (o cualquier servidor web PHP como XAMPP, WAMP, Apache)
-- **API Key gratuita** de [football-data.org](https://www.football-data.org/client/register) (opcional, activar para datos reales)
+- **PHP** 7.4 o superior con extensiones `pdo_sqlite` y `curl` habilitadas
+- **EasyPHP** (o cualquier servidor web PHP: XAMPP, WAMP, Apache)
+- **Conexión a internet** (usa la API pública de ESPN, **sin registro ni API Key**)
 
 ---
 
@@ -42,19 +42,12 @@ Colocar en la carpeta raíz del servidor web:
 EasyPHP/www/monitoreos/calendariomundial2026/
 ```
 
-### 2. Configurar API Key (opcional)
+### 2. Abrir en el navegador — ¡ya funciona!
 
-1. Registrarse en [football-data.org](https://www.football-data.org/client/register) (gratuito)
-2. Copiar el **API Token**
-3. Crear el archivo `backend/config.local.php`:
+No se necesita ninguna configuración adicional. La app obtiene los datos
+automáticamente de la **API pública de ESPN** al pulsar "Actualizar Resultados".
 
-```php
-<?php
-// Este archivo está excluido del repositorio (.gitignore)
-define('FOOTBALL_API_KEY', 'tu_token_aqui');
-```
-
-> **Sin API Key:** la app funciona en **Modo Demo** con datos de muestra.
+> **Sin internet:** la app muestra datos de muestra (Modo Demo) con un aviso visual.
 
 ### 3. Abrir en el navegador
 
@@ -115,10 +108,10 @@ calendariomundial2026/
 
 ## Fuentes de Datos
 
-| Servicio | Uso | Costo |
-|----------|-----|-------|
-| [football-data.org](https://football-data.org) | Partidos, marcadores, posiciones | Gratuito |
-| [flagcdn.com](https://flagcdn.com) | Banderas de selecciones | Gratuito |
+| Servicio | Uso | Registro |
+|----------|-----|----------|
+| [ESPN API (no-oficial)](https://site.api.espn.com) | Partidos, marcadores, posiciones en vivo | **No requerido** |
+| [flagcdn.com](https://flagcdn.com) | Banderas de las 48 selecciones | **No requerido** |
 
 ---
 

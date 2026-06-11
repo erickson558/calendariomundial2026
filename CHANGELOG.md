@@ -5,6 +5,19 @@ Versionado según [Semantic Versioning](https://semver.org/lang/es/) — `Vx.x.x
 
 ---
 
+## [V1.1.0] — 2026-06-11
+
+### Cambiado
+- **Fuente de datos reemplazada**: de football-data.org (requería registro) a la **API pública de ESPN** sin ningún registro ni API Key
+- El modo demo ahora se activa automáticamente solo cuando no hay internet, en lugar de cuando falta una API Key
+- Mensajes de UI actualizados para reflejar que no se necesita configuración
+
+### Corregido
+- El seed de partidos demo ya no dependía del flag `DEMO_MODE` que ahora es siempre `false`
+- La lógica de standings ahora procesa el array plano que devuelve ESPN en lugar del formato agrupado de football-data.org
+
+---
+
 ## [V1.0.0] — 2026-06-11
 
 ### Añadido

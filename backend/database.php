@@ -212,11 +212,11 @@ class Database {
     // ── Seed de Partidos Demo ─────────────────────────────
 
     /**
-     * Inserta partidos de ejemplo solo en Modo Demo (sin API Key).
-     * Sirve para mostrar cómo se ve la interfaz con datos reales.
+     * Inserta partidos de ejemplo como fallback cuando ESPN no está
+     * disponible (sin internet, torneo aún no en la API, etc.).
+     * Solo se ejecuta si la tabla de partidos está vacía.
      */
     private static function seedDemoMatches(): void {
-        if (!DEMO_MODE) return;
 
         $db = self::$instance;
         $count = $db->query("SELECT COUNT(*) FROM matches")->fetchColumn();
