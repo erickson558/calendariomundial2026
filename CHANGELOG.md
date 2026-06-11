@@ -5,6 +5,23 @@ Versionado según [Semantic Versioning](https://semver.org/lang/es/) — `Vx.x.x
 
 ---
 
+## [V1.3.0] — 2026-06-11
+
+### Añadido
+- **Próximo partido**: el primer partido pendiente se resalta con borde dorado y etiqueta "▶ PRÓXIMO PARTIDO" en todas las pestañas
+- **Selector de zona horaria por país**: dropdown reorganizado con banderas de país (emojis), agrupado por región. Guatemala, El Salvador, Honduras, Nicaragua, Costa Rica y Panamá ahora tienen entradas propias con su UTC offset
+- **Orden cronológico**: partidos ordenados estrictamente por hora dentro de cada bloque de fecha
+
+### Corregido
+- **Bug crítico de tab "Todos"**: `State.data.matches` → `State.data.all` (la tab nunca mostraba partidos)
+- **Bug de auto-refresh**: `State.data.status.has_live` → `State.data.has_live` (el refresh automático en partidos en vivo no funcionaba)
+- **Modo demo ahora auto-migra a datos reales**: al cargar la página en demo, el JS dispara automáticamente una actualización ESPN en segundo plano sin que el usuario pulse nada
+- **Tildes en nombres en español**: España, México, Panamá, Bélgica, Países Bajos, Turquía, Hungría, Túnez, Sudáfrica, Camerún, Japón, Irán, Uzbekistán — corregido en el seed y con migración automática para DBs existentes
+- **TTL de caché en demo mode**: en modo demo siempre se intenta ESPN (sin respetar los 5 min de caché) para garantizar la migración a datos reales tan pronto como el torneo esté disponible
+- **Limpieza de datos demo**: al recibir datos reales de ESPN, los partidos de muestra (sin external_id) se eliminan para no mezclarlos con datos reales
+
+---
+
 ## [V1.2.0] — 2026-06-11
 
 ### Corregido

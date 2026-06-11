@@ -5,32 +5,40 @@
  * =========================================================
  *
  * Devuelve el payload JSON completo al frontend.
- * Parámetros GET opcionales:
- *   group  — filtra partidos y posiciones por grupo (A–L)
+ * Parametros GET opcionales:
+ *   group  - filtra partidos y posiciones por grupo (A-L)
  *
- * Respuesta:
- *   { status, matches, today, standings, teams }
+ * Auto-refresh en primera carga:
+ *   Si el sistema esta en modo demo Y nunca se ha intentado ESPN
+ *   (last_updated vacio), intenta ESPN automaticamente para que
+ *   el usuario vea datos reales desde el primer clic sin necesidad
+ *   de pulsar "Actualizar".
  */
 
-// Encabezados JSON y CORS para llamadas AJAX locales
 header('Content-Type: application/json; charset=UTF-8');
 header('Cache-Control: no-store, no-cache, must-revalidate');
 header('Access-Control-Allow-Origin: *');
 
-require_once __DIR__ . '/../backend/data_service.php';
+require_once dirname(__FILE__) . '/../backend/data_service.php';
 
 try {
-    // Leer filtro de grupo de la URL (?group=A)
     $group = isset($_GET['group']) ? strtoupper(trim($_GET['group'])) : null;
     if ($group && !preg_match('/^[A-L]$/', $group)) {
-        $group = null;  // Ignorar valores inválidos
+        $group = null;
     }
 
-    // Construir y devolver el payload completo
+    // Auto-intentar ESPN solo en la primera carga (last_updated vacio)
+    // para evitar latencia en visitas posteriores.
+    // El usuario puede forzar actualizacion en cualquier momento con el boton.
+    $isDemo      = Database::getSetting('is_demo', '0');
+    $lastUpdated = Database::getSetting('last_updated', '');
+    if ($isDemo === '1' && empty($lastUpdated)) {
+        DataService::refreshData();
+    }
+
     echo json_encode(DataService::buildPayload($group), JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
 
 } catch (Exception $e) {
-    // Devolver error estructurado para que el frontend lo muestre
     http_response_code(500);
     echo json_encode(array(
         'error'   => true,

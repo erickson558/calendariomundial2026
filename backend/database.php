@@ -37,6 +37,7 @@ class Database {
             self::$instance->exec('PRAGMA foreign_keys=ON');
             self::createSchema();
             self::seedTeams();
+            self::fixSpanishNames();   // Corrige tildes en DBs existentes
             self::seedDemoMatches();
         }
         return self::$instance;
@@ -132,27 +133,27 @@ class Database {
         // [name, name_es, name_en, short_name, tla, iso_code, confederation, is_host]
         $teams = array(
             array('United States',  'Estados Unidos', 'United States', 'USA',       'USA','us',     'CONCACAF',1),
-            array('Mexico',         'Mexico',         'Mexico',        'Mexico',    'MEX','mx',     'CONCACAF',1),
-            array('Canada',         'Canada',         'Canada',        'Canada',    'CAN','ca',     'CONCACAF',1),
-            array('Panama',         'Panama',         'Panama',        'Panama',    'PAN','pa',     'CONCACAF',0),
+            array('Mexico',         'México',         'Mexico',        'México',    'MEX','mx',     'CONCACAF',1),
+            array('Canada',         'Canadá',         'Canada',        'Canada',    'CAN','ca',     'CONCACAF',1),
+            array('Panama',         'Panamá',         'Panama',        'Panama',    'PAN','pa',     'CONCACAF',0),
             array('Jamaica',        'Jamaica',        'Jamaica',       'Jamaica',   'JAM','jm',     'CONCACAF',0),
             array('Honduras',       'Honduras',       'Honduras',      'Honduras',  'HON','hn',     'CONCACAF',0),
             array('Germany',        'Alemania',       'Germany',       'Germany',   'GER','de',     'UEFA',0),
             array('France',         'Francia',        'France',        'France',    'FRA','fr',     'UEFA',0),
-            array('Spain',          'Espana',         'Spain',         'Spain',     'ESP','es',     'UEFA',0),
+            array('Spain',          'España',         'Spain',         'Spain',     'ESP','es',     'UEFA',0),
             array('England',        'Inglaterra',     'England',       'England',   'ENG','gb-eng', 'UEFA',0),
             array('Portugal',       'Portugal',       'Portugal',      'Portugal',  'POR','pt',     'UEFA',0),
-            array('Netherlands',    'Paises Bajos',   'Netherlands',   'Netherlands','NED','nl',    'UEFA',0),
-            array('Belgium',        'Belgica',        'Belgium',       'Belgium',   'BEL','be',     'UEFA',0),
+            array('Netherlands',    'Países Bajos',   'Netherlands',   'Netherlands','NED','nl',    'UEFA',0),
+            array('Belgium',        'Bélgica',        'Belgium',       'Belgium',   'BEL','be',     'UEFA',0),
             array('Italy',          'Italia',         'Italy',         'Italy',     'ITA','it',     'UEFA',0),
             array('Croatia',        'Croacia',        'Croatia',       'Croatia',   'CRO','hr',     'UEFA',0),
             array('Switzerland',    'Suiza',          'Switzerland',   'Switzerland','SUI','ch',    'UEFA',0),
             array('Denmark',        'Dinamarca',      'Denmark',       'Denmark',   'DEN','dk',     'UEFA',0),
             array('Austria',        'Austria',        'Austria',       'Austria',   'AUT','at',     'UEFA',0),
-            array('Turkey',         'Turquia',        'Turkey',        'Turkey',    'TUR','tr',     'UEFA',0),
+            array('Turkey',         'Turquía',        'Turkey',        'Turkey',    'TUR','tr',     'UEFA',0),
             array('Serbia',         'Serbia',         'Serbia',        'Serbia',    'SRB','rs',     'UEFA',0),
             array('Scotland',       'Escocia',        'Scotland',      'Scotland',  'SCO','gb-sct', 'UEFA',0),
-            array('Hungary',        'Hungria',        'Hungary',       'Hungary',   'HUN','hu',     'UEFA',0),
+            array('Hungary',        'Hungría',        'Hungary',       'Hungary',   'HUN','hu',     'UEFA',0),
             array('Slovakia',       'Eslovaquia',     'Slovakia',      'Slovakia',  'SVK','sk',     'UEFA',0),
             array('Slovenia',       'Eslovenia',      'Slovenia',      'Slovenia',  'SVN','si',     'UEFA',0),
             array('Albania',        'Albania',        'Albania',       'Albania',   'ALB','al',     'UEFA',0),
@@ -168,19 +169,19 @@ class Database {
             array('Senegal',        'Senegal',        'Senegal',       'Senegal',   'SEN','sn',     'CAF',0),
             array('Nigeria',        'Nigeria',        'Nigeria',       'Nigeria',   'NGA','ng',     'CAF',0),
             array('Egypt',          'Egipto',         'Egypt',         'Egypt',     'EGY','eg',     'CAF',0),
-            array('Tunisia',        'Tunez',          'Tunisia',       'Tunisia',   'TUN','tn',     'CAF',0),
+            array('Tunisia',        'Túnez',          'Tunisia',       'Tunisia',   'TUN','tn',     'CAF',0),
             array('DR Congo',       'RD Congo',       'DR Congo',      'DR Congo',  'COD','cd',     'CAF',0),
-            array('South Africa',   'Sudafrica',      'South Africa',  'S. Africa', 'RSA','za',     'CAF',0),
+            array('South Africa',   'Sudáfrica',      'South Africa',  'S. Africa', 'RSA','za',     'CAF',0),
             array('Ghana',          'Ghana',          'Ghana',         'Ghana',     'GHA','gh',     'CAF',0),
-            array('Cameroon',       'Camerun',        'Cameroon',      'Cameroon',  'CMR','cm',     'CAF',0),
-            array('Japan',          'Japon',          'Japan',         'Japan',     'JPN','jp',     'AFC',0),
+            array('Cameroon',       'Camerún',        'Cameroon',      'Cameroon',  'CMR','cm',     'CAF',0),
+            array('Japan',          'Japón',          'Japan',         'Japan',     'JPN','jp',     'AFC',0),
             array('South Korea',    'Corea del Sur',  'South Korea',   'S. Korea',  'KOR','kr',     'AFC',0),
             array('Saudi Arabia',   'Arabia Saudita', 'Saudi Arabia',  'Saudi Arabia','KSA','sa',  'AFC',0),
             array('Australia',      'Australia',      'Australia',     'Australia', 'AUS','au',     'AFC',0),
-            array('Iran',           'Iran',           'Iran',          'Iran',      'IRN','ir',     'AFC',0),
+            array('Iran',           'Irán',           'Iran',          'Iran',      'IRN','ir',     'AFC',0),
             array('Iraq',           'Irak',           'Iraq',          'Iraq',      'IRQ','iq',     'AFC',0),
             array('Jordan',         'Jordania',       'Jordan',        'Jordan',    'JOR','jo',     'AFC',0),
-            array('Uzbekistan',     'Uzbekistan',     'Uzbekistan',    'Uzbekistan','UZB','uz',     'AFC',0),
+            array('Uzbekistan',     'Uzbekistán',     'Uzbekistan',    'Uzbekistan','UZB','uz',     'AFC',0),
             array('New Zealand',    'Nueva Zelanda',  'New Zealand',   'New Zealand','NZL','nz',    'OFC',0),
         );
 
@@ -251,8 +252,41 @@ class Database {
         $stmtSt->execute(array($mexId,'A',1,1,1,0,0,2,0, 2,3));
         $stmtSt->execute(array($ecuId,'A',2,1,0,0,1,0,2,-2,0));
 
-        self::setSetting('last_updated', date('c'));
+        // NO setear last_updated aqui: dejarlo vacio permite que get-data.php
+        // detecte "primera carga" y llame ESPN automaticamente en la primer visita.
         self::setSetting('is_demo', '1');
+    }
+
+    // ── Migracion de nombres ──────────────────────────────
+
+    /**
+     * Corrige tildes y caracteres especiales en los nombres en espanol.
+     * Se llama en cada boot para reparar tambien DBs existentes sin tener
+     * que borrar y recrear la base de datos.
+     * El UPDATE es idempotente (no hace nada si ya esta corregido).
+     */
+    private static function fixSpanishNames() {
+        $db = self::$instance;
+        $fixes = array(
+            'Espana'       => 'España',
+            'Mexico'       => 'México',
+            'Canada'       => 'Canadá',
+            'Panama'       => 'Panamá',
+            'Belgica'      => 'Bélgica',
+            'Paises Bajos' => 'Países Bajos',
+            'Turquia'      => 'Turquía',
+            'Hungria'      => 'Hungría',
+            'Tunez'        => 'Túnez',
+            'Sudafrica'    => 'Sudáfrica',
+            'Camerun'      => 'Camerún',
+            'Japon'        => 'Japón',
+            'Iran'         => 'Irán',
+            'Uzbekistan'   => 'Uzbekistán',
+        );
+        $stmt = $db->prepare("UPDATE teams SET name_es = ? WHERE name_es = ?");
+        foreach ($fixes as $wrong => $correct) {
+            $stmt->execute(array($correct, $wrong));
+        }
     }
 
     // ── Settings ─────────────────────────────────────────

@@ -61,5 +61,6 @@
   "hosts": "Sede",
   "search_teams": "Buscar equipos...",
   "match_detail": "Detalle del Partido",
-  "close": "Cerrar"
+  "close": "Cerrar",
+  "up_next": "Próximo Partido"
 }

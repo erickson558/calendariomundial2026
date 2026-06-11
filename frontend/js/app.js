@@ -4,57 +4,45 @@
  * =========================================================
  *
  * Arquitectura:
- *  State  → objeto centralizado con todos los datos del app
+ *  State  → objeto centralizado con todos los datos de la app
  *  render → reconstruye la UI a partir del estado
- *  API    → módulo de comunicación con el backend PHP
- *  i18n   → módulo de traducción ES/EN
- *  TZ     → módulo de conversión de zona horaria
- *
- * No depende de frameworks externos; usa fetch() y DOM APIs.
+ *  API    → comunicacion con el backend PHP
+ *  I18n   → traducciones ES/EN
+ *  TZ     → conversion de zona horaria con Intl.DateTimeFormat
  */
 
-/* ── Estado global de la aplicación ────────────────────── */
+/* ── Estado global ──────────────────────────────────────── */
 const State = {
-  lang:     localStorage.getItem('wc_lang') || 'es',     // Idioma activo
-  tz:       localStorage.getItem('wc_tz')   || Intl.DateTimeFormat().resolvedOptions().timeZone,
-  tab:      'today',     // Pestaña activa: today | matches | groups
-  group:    null,        // Filtro de grupo activo (A–L o null)
-  data:     null,        // Último payload de la API
-  updating: false,       // Bloqueo durante actualización
-  i18n:     {},          // Diccionario de traducciones cargado
+  lang:        localStorage.getItem('wc_lang') || 'es',
+  tz:          localStorage.getItem('wc_tz')   || Intl.DateTimeFormat().resolvedOptions().timeZone,
+  tab:         'today',
+  group:       null,
+  data:        null,
+  updating:    false,
+  i18n:        {},
+  nextMatchId: null,   // ID del proximo partido programado
 };
 
-/* ── Módulo i18n ────────────────────────────────────────── */
+/* ── Modulo i18n ────────────────────────────────────────── */
 const I18n = {
-  /**
-   * Carga el JSON de traducciones para el idioma indicado.
-   * Los archivos están en /i18n/{lang}.json.
-   */
   async load(lang) {
     const res  = await fetch(`i18n/${lang}.json?v=${Date.now()}`);
     State.i18n = await res.json();
     State.lang = lang;
     localStorage.setItem('wc_lang', lang);
   },
-
-  /** Devuelve la cadena traducida por clave */
-  t(key) {
-    return State.i18n[key] || key;
-  },
+  t(key) { return State.i18n[key] || key; },
 };
 
-/* ── Módulo de Zona Horaria ─────────────────────────────── */
+/* ── Modulo de Zona Horaria ─────────────────────────────── */
 const TZ = {
   /**
-   * Convierte una fecha UTC (ISO 8601) a la zona horaria
-   * actualmente seleccionada por el usuario.
-   *
-   * @param {string} utcStr  Ej: "2026-06-11T19:00:00Z"
-   * @param {object} opts    Opciones de Intl.DateTimeFormat
-   * @returns {string}       Fecha/hora formateada
+   * Convierte una fecha UTC (ISO 8601) a la zona horaria del usuario.
+   * Usa Intl.DateTimeFormat para soporte nativo de todas las IANA TZs.
    */
-  format(utcStr, opts = {}) {
+  format(utcStr, opts) {
     if (!utcStr) return '—';
+    opts = opts || {};
     try {
       const date = new Date(utcStr);
       const defaultOpts = {
@@ -63,438 +51,494 @@ const TZ = {
         minute:   '2-digit',
         hour12:   false,
       };
-      return new Intl.DateTimeFormat(State.lang === 'es' ? 'es-419' : 'en-US', { ...defaultOpts, ...opts }).format(date);
-    } catch { return utcStr.slice(11, 16) + ' UTC'; }
+      const merged = Object.assign({}, defaultOpts, opts);
+      return new Intl.DateTimeFormat(State.lang === 'es' ? 'es-419' : 'en-US', merged).format(date);
+    } catch(e) { return utcStr.slice(11, 16) + ' UTC'; }
   },
 
-  /** Devuelve solo la hora (HH:mm) en la zona del usuario */
   time(utcStr) {
     return this.format(utcStr, { hour: '2-digit', minute: '2-digit', hour12: false });
   },
 
-  /**
-   * Devuelve la fecha "larga" con día de la semana.
-   * Se usa en los encabezados de cada bloque de fecha.
-   */
   dateLabel(dateStr) {
-    // dateStr viene como "YYYY-MM-DD" (extraída del UTC original)
-    // La parseamos como fecha local para que el label no se desplace
-    const [y, m, d] = dateStr.split('-').map(Number);
-    const date      = new Date(y, m - 1, d);
-    const locale    = State.lang === 'es' ? 'es-419' : 'en-US';
+    const parts = dateStr.split('-').map(Number);
+    const date  = new Date(parts[0], parts[1] - 1, parts[2]);
+    const locale = State.lang === 'es' ? 'es-419' : 'en-US';
     return new Intl.DateTimeFormat(locale, {
       weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
     }).format(date);
   },
 
   /**
-   * Convierte la fecha UTC del partido a la fecha local del usuario.
-   * Necesario para agrupar partidos por "el día del usuario", no por UTC.
+   * Convierte una fecha UTC al dia LOCAL del usuario (formato YYYY-MM-DD).
+   * Necesario para agrupar partidos por "el dia del usuario" y no por UTC,
+   * ya que un partido a las 23:00 CT puede ser al dia siguiente en UTC.
    */
   localDateKey(utcStr) {
     if (!utcStr) return '';
     try {
-      const date   = new Date(utcStr);
-      const locale = 'sv-SE';    // Sueco = formato ISO YYYY-MM-DD sin ajuste
-      return new Intl.DateTimeFormat(locale, {
+      const date = new Date(utcStr);
+      return new Intl.DateTimeFormat('sv-SE', {
         timeZone: State.tz, year: 'numeric', month: '2-digit', day: '2-digit',
       }).format(date);
-    } catch { return utcStr.slice(0, 10); }
+    } catch(e) { return utcStr.slice(0, 10); }
   },
 
   /**
-   * Lista de zonas horarias importantes agrupadas por región.
-   * Se usa para poblar el <select> del header.
+   * Lista de zonas horarias organizada por pais/region.
+   * Guatemala y toda Centroamerica incluidos prominentemente.
+   * Los emojis de banderas ayudan a identificar rapido el pais.
    */
   getTimezones() {
     return [
-      { label: '── Américas ──', disabled: true },
-      { tz: 'America/New_York',             label: 'Nueva York (ET)' },
-      { tz: 'America/Chicago',              label: 'Chicago (CT)' },
-      { tz: 'America/Denver',               label: 'Denver (MT)' },
-      { tz: 'America/Los_Angeles',          label: 'Los Ángeles (PT)' },
-      { tz: 'America/Mexico_City',          label: 'Ciudad de México (CST)' },
-      { tz: 'America/Bogota',               label: 'Bogotá / Lima (COT)' },
-      { tz: 'America/Caracas',              label: 'Caracas (VET)' },
-      { tz: 'America/Toronto',              label: 'Toronto (ET)' },
-      { tz: 'America/Vancouver',            label: 'Vancouver (PT)' },
-      { tz: 'America/Argentina/Buenos_Aires', label: 'Buenos Aires (ART)' },
-      { tz: 'America/Sao_Paulo',            label: 'São Paulo (BRT)' },
-      { tz: 'America/Santiago',             label: 'Santiago (CLT)' },
+      // ── América del Norte ──────────────────────────────
+      { label: '── América del Norte ──', disabled: true },
+      { tz: 'America/New_York',    label: '🇺🇸 Estados Unidos — Este (ET, UTC-5/-4)' },
+      { tz: 'America/Chicago',     label: '🇺🇸 Estados Unidos — Centro (CT, UTC-6/-5)' },
+      { tz: 'America/Denver',      label: '🇺🇸 Estados Unidos — Montaña (MT, UTC-7/-6)' },
+      { tz: 'America/Los_Angeles', label: '🇺🇸 Estados Unidos — Pacífico (PT, UTC-8/-7)' },
+      { tz: 'America/Anchorage',   label: '🇺🇸 Alaska (AKT, UTC-9/-8)' },
+      { tz: 'America/Toronto',     label: '🇨🇦 Canadá — Este (ET, UTC-5/-4)' },
+      { tz: 'America/Vancouver',   label: '🇨🇦 Canadá — Pacífico (PT, UTC-8/-7)' },
+      { tz: 'America/Mexico_City', label: '🇲🇽 México — Centro (CST, UTC-6/-5)' },
+      { tz: 'America/Tijuana',     label: '🇲🇽 México — Pacífico (PST, UTC-8/-7)' },
+      // ── Centroamérica ──────────────────────────────────
+      { label: '── Centroamérica / Caribe ──', disabled: true },
+      { tz: 'America/Guatemala',   label: '🇬🇹 Guatemala (CST, UTC-6)' },
+      { tz: 'America/El_Salvador', label: '🇸🇻 El Salvador (CST, UTC-6)' },
+      { tz: 'America/Tegucigalpa', label: '🇭🇳 Honduras (CST, UTC-6)' },
+      { tz: 'America/Managua',     label: '🇳🇮 Nicaragua (CST, UTC-6)' },
+      { tz: 'America/Costa_Rica',  label: '🇨🇷 Costa Rica (CST, UTC-6)' },
+      { tz: 'America/Panama',      label: '🇵🇦 Panamá (EST, UTC-5)' },
+      { tz: 'America/Havana',      label: '🇨🇺 Cuba (CDT, UTC-5/-4)' },
+      { tz: 'America/Puerto_Rico', label: '🇵🇷 Puerto Rico (AST, UTC-4)' },
+      { tz: 'America/Santo_Domingo', label: '🇩🇴 República Dominicana (AST, UTC-4)' },
+      // ── Sudamérica ────────────────────────────────────
+      { label: '── Sudamérica ──', disabled: true },
+      { tz: 'America/Bogota',      label: '🇨🇴 Colombia / Perú / Ecuador (COT, UTC-5)' },
+      { tz: 'America/Caracas',     label: '🇻🇪 Venezuela (VET, UTC-4)' },
+      { tz: 'America/Sao_Paulo',   label: '🇧🇷 Brasil — Brasilia (BRT, UTC-3)' },
+      { tz: 'America/Manaus',      label: '🇧🇷 Brasil — Amazonas (AMT, UTC-4)' },
+      { tz: 'America/Argentina/Buenos_Aires', label: '🇦🇷 Argentina (ART, UTC-3)' },
+      { tz: 'America/Santiago',    label: '🇨🇱 Chile (CLT, UTC-4/-3)' },
+      { tz: 'America/Asuncion',    label: '🇵🇾 Paraguay (PYT, UTC-4/-3)' },
+      { tz: 'America/La_Paz',      label: '🇧🇴 Bolivia (BOT, UTC-4)' },
+      // ── Europa ───────────────────────────────────────
       { label: '── Europa ──', disabled: true },
-      { tz: 'UTC',                          label: 'UTC / GMT' },
-      { tz: 'Europe/London',                label: 'Londres (BST)' },
-      { tz: 'Europe/Madrid',                label: 'Madrid / París / Berlín (CEST)' },
-      { tz: 'Europe/Rome',                  label: 'Roma / Ámsterdam (CEST)' },
-      { tz: 'Europe/Lisbon',                label: 'Lisboa (WEST)' },
-      { tz: 'Europe/Athens',                label: 'Atenas / Bucarest (EEST)' },
-      { tz: 'Europe/Moscow',                label: 'Moscú (MSK)' },
+      { tz: 'UTC',                 label: '🌐 UTC / GMT (UTC+0)' },
+      { tz: 'Europe/London',       label: '🇬🇧 Reino Unido (BST, UTC+1)' },
+      { tz: 'Europe/Lisbon',       label: '🇵🇹 Portugal (WEST, UTC+1)' },
+      { tz: 'Europe/Madrid',       label: '🇪🇸 España / Francia / Alemania (CEST, UTC+2)' },
+      { tz: 'Europe/Rome',         label: '🇮🇹 Italia / Países Bajos (CEST, UTC+2)' },
+      { tz: 'Europe/Athens',       label: '🇬🇷 Grecia / Rumanía (EEST, UTC+3)' },
+      { tz: 'Europe/Moscow',       label: '🇷🇺 Rusia (MSK, UTC+3)' },
+      // ── África ───────────────────────────────────────
       { label: '── África ──', disabled: true },
-      { tz: 'Africa/Casablanca',            label: 'Casablanca (WET)' },
-      { tz: 'Africa/Cairo',                 label: 'El Cairo (EET)' },
-      { tz: 'Africa/Lagos',                 label: 'Lagos / Dakar (WAT)' },
-      { tz: 'Africa/Johannesburg',          label: 'Johannesburgo (SAST)' },
+      { tz: 'Africa/Casablanca',   label: '🇲🇦 Marruecos (WET, UTC+1)' },
+      { tz: 'Africa/Cairo',        label: '🇪🇬 Egipto (EET, UTC+2)' },
+      { tz: 'Africa/Lagos',        label: '🇳🇬 Nigeria / Senegal (WAT, UTC+1)' },
+      { tz: 'Africa/Nairobi',      label: '🇰🇪 Kenia (EAT, UTC+3)' },
+      { tz: 'Africa/Johannesburg', label: '🇿🇦 Sudáfrica (SAST, UTC+2)' },
+      // ── Asia / Pacífico ───────────────────────────────
       { label: '── Asia / Pacífico ──', disabled: true },
-      { tz: 'Asia/Riyadh',                  label: 'Riad / Bagdad (AST)' },
-      { tz: 'Asia/Dubai',                   label: 'Dubái (GST)' },
-      { tz: 'Asia/Karachi',                 label: 'Karachi (PKT)' },
-      { tz: 'Asia/Kolkata',                 label: 'Nueva Delhi (IST)' },
-      { tz: 'Asia/Bangkok',                 label: 'Bangkok (ICT)' },
-      { tz: 'Asia/Singapore',               label: 'Singapur (SGT)' },
-      { tz: 'Asia/Tokyo',                   label: 'Tokio (JST)' },
-      { tz: 'Asia/Seoul',                   label: 'Seúl (KST)' },
-      { tz: 'Australia/Sydney',             label: 'Sídney (AEST)' },
-      { tz: 'Pacific/Auckland',             label: 'Auckland (NZST)' },
+      { tz: 'Asia/Riyadh',         label: '🇸🇦 Arabia Saudita / Irak (AST, UTC+3)' },
+      { tz: 'Asia/Dubai',          label: '🇦🇪 Emiratos Árabes (GST, UTC+4)' },
+      { tz: 'Asia/Karachi',        label: '🇵🇰 Pakistán (PKT, UTC+5)' },
+      { tz: 'Asia/Kolkata',        label: '🇮🇳 India (IST, UTC+5:30)' },
+      { tz: 'Asia/Tehran',         label: '🇮🇷 Irán (IRST, UTC+3:30)' },
+      { tz: 'Asia/Bangkok',        label: '🇹🇭 Tailandia / Vietnam (ICT, UTC+7)' },
+      { tz: 'Asia/Singapore',      label: '🇸🇬 Singapur / Malasia (SGT, UTC+8)' },
+      { tz: 'Asia/Tokyo',          label: '🇯🇵 Japón (JST, UTC+9)' },
+      { tz: 'Asia/Seoul',          label: '🇰🇷 Corea del Sur (KST, UTC+9)' },
+      { tz: 'Australia/Sydney',    label: '🇦🇺 Australia (AEST, UTC+10/+11)' },
+      { tz: 'Pacific/Auckland',    label: '🇳🇿 Nueva Zelanda (NZST, UTC+12)' },
     ];
   },
 };
 
-/* ── Módulo de API ──────────────────────────────────────── */
+/* ── Modulo de API ──────────────────────────────────────── */
 const API = {
-  /**
-   * Carga el payload completo de partidos, posiciones y estado.
-   * Pasa el filtro de grupo si está activo.
-   */
   async loadData() {
-    const url  = `api/get-data.php` + (State.group ? `?group=${State.group}` : '');
+    const url = 'api/get-data.php' + (State.group ? '?group=' + State.group : '');
     const res  = await fetch(url);
     const data = await res.json();
     if (data.error) throw new Error(data.message);
     return data;
   },
-
-  /** Dispara la actualización contra football-data.org */
   async update() {
-    const res  = await fetch('api/update-results.php', { method: 'POST' });
+    const res = await fetch('api/update-results.php', { method: 'POST' });
     return await res.json();
   },
 };
 
-/* ── Renderizado: banderas ──────────────────────────────── */
+/* ── Helpers de banderas ────────────────────────────────── */
 
-/**
- * Construye la URL de la bandera en flagcdn.com.
- * Para banderas de naciones del UK (Inglaterra, Escocia, etc.)
- * usa el código compuesto (gb-eng, gb-sct).
- *
- * @param {string} iso  Código ISO minúsculo (ej: "mx", "gb-eng")
- * @param {string} tla  Abreviatura de 3 letras (fallback)
- * @returns {string}    URL de la imagen
- */
-function flagUrl(iso, tla) {
+function flagUrl(iso) {
   if (!iso) return '';
-  return `https://flagcdn.com/w40/${iso.toLowerCase()}.png`;
+  return 'https://flagcdn.com/w40/' + iso.toLowerCase() + '.png';
 }
 
-/** Devuelve el elemento <img> de la bandera o un placeholder */
 function flagImg(iso, tla, alt) {
-  if (!iso) return `<span class="team-flag-placeholder">${tla || '?'}</span>`;
-  return `<img class="team-flag" src="${flagUrl(iso, tla)}" alt="${alt}" loading="lazy"
-               onerror="this.outerHTML='<span class=\\'team-flag-placeholder\\'>${tla||'?'}</span>'">`;
+  if (!iso) return '<span class="team-flag-placeholder">' + (tla || '?') + '</span>';
+  return '<img class="team-flag" src="' + flagUrl(iso) + '" alt="' + alt + '" loading="lazy"' +
+         ' onerror="this.outerHTML=\'<span class=\\\'team-flag-placeholder\\\'>' + (tla||'?') + '</span>\'">';
 }
 
-/* ── Renderizado: estado del partido ────────────────────── */
+/* ── Badge de estado del partido ────────────────────────── */
 
-/** Devuelve la clase y etiqueta del badge de estado del partido */
 function statusBadge(status) {
   const map = {
-    SCHEDULED:  ['scheduled', 'status_scheduled'],
-    IN_PLAY:    ['live',      'status_in_play'],
-    PAUSED:     ['paused',    'status_paused'],
-    FINISHED:   ['finished',  'status_finished'],
-    POSTPONED:  ['postponed', 'status_postponed'],
-    CANCELLED:  ['postponed', 'status_cancelled'],
-    SUSPENDED:  ['postponed', 'status_suspended'],
+    SCHEDULED: ['scheduled', 'status_scheduled'],
+    IN_PLAY:   ['live',      'status_in_play'],
+    PAUSED:    ['paused',    'status_paused'],
+    FINISHED:  ['finished',  'status_finished'],
+    POSTPONED: ['postponed', 'status_postponed'],
+    CANCELLED: ['postponed', 'status_cancelled'],
+    SUSPENDED: ['postponed', 'status_suspended'],
   };
-  const [cls, key] = map[status] || ['scheduled', 'status_scheduled'];
-  return `<span class="match-status-badge badge-${cls}">${I18n.t(key)}</span>`;
+  const info = map[status] || ['scheduled', 'status_scheduled'];
+  return '<span class="match-status-badge badge-' + info[0] + '">' + I18n.t(info[1]) + '</span>';
 }
 
-/** Traduce el nombre de etapa (GROUP_STAGE → "Fase de Grupos") */
 function stageLabel(stage) {
   const map = {
-    GROUP_STAGE:     'stage_group',
-    ROUND_OF_32:     'stage_r32',
-    LAST_16:         'stage_r16',
-    ROUND_OF_16:     'stage_r16',
-    QUARTER_FINALS:  'stage_qf',
-    SEMI_FINALS:     'stage_sf',
-    THIRD_PLACE:     'stage_3rd',
-    FINAL:           'stage_final',
+    GROUP_STAGE:    'stage_group',
+    ROUND_OF_32:    'stage_r32',
+    LAST_32:        'stage_r32',
+    LAST_16:        'stage_r16',
+    ROUND_OF_16:    'stage_r16',
+    QUARTER_FINALS: 'stage_qf',
+    SEMI_FINALS:    'stage_sf',
+    THIRD_PLACE:    'stage_3rd',
+    FINAL:          'stage_final',
   };
   return I18n.t(map[stage] || 'stage_group');
 }
 
-/* ── Renderizado: tarjeta de partido ────────────────────── */
+/* ── Detectar proximo partido ───────────────────────────── */
 
 /**
- * Genera el HTML completo para una tarjeta de partido.
- * Incluye ambos equipos con banderas, marcador, hora en la
- * zona horaria del usuario y badges de estado.
- *
- * @param {object} match  Objeto partido del payload
- * @returns {string}      HTML de la tarjeta
+ * Encuentra el primer partido PROGRAMADO despues de ahora,
+ * ordenado cronologicamente. Usado para el indicador "PROXIMO PARTIDO".
  */
-function renderMatchCard(match) {
-  const isLive     = ['IN_PLAY', 'PAUSED'].includes(match.status);
+function findNextMatchId(matches) {
+  const now = Date.now();
+  const upcoming = matches
+    .filter(function(m) { return m.status === 'SCHEDULED' && m.match_date; })
+    .sort(function(a, b) { return new Date(a.match_date) - new Date(b.match_date); });
+  const next = upcoming.filter(function(m) { return new Date(m.match_date).getTime() > now; });
+  return next.length ? next[0].id : null;
+}
+
+/** Extrae todos los partidos como array plano desde el payload agrupado */
+function getAllMatchesFlat() {
+  if (!State.data || !State.data.all) return [];
+  const flat = [];
+  const groups = Object.values(State.data.all);
+  for (let i = 0; i < groups.length; i++) {
+    const dayMatches = groups[i];
+    if (Array.isArray(dayMatches)) {
+      for (let j = 0; j < dayMatches.length; j++) {
+        flat.push(dayMatches[j]);
+      }
+    }
+  }
+  return flat;
+}
+
+/* ── Tarjeta de partido ─────────────────────────────────── */
+
+/**
+ * Genera el HTML completo de una tarjeta de partido.
+ *
+ * isNext: true si es el proximo partido programado.
+ *   Se muestra un indicador dorado "▶ PROXIMO PARTIDO" encima.
+ */
+function renderMatchCard(match, isNext) {
+  const isLive     = match.status === 'IN_PLAY' || match.status === 'PAUSED';
   const isFinished = match.status === 'FINISHED';
   const hasScore   = match.home_score !== null && match.away_score !== null;
 
-  // Nombres en el idioma activo
   const homeName = (State.lang === 'es' ? match.home_name_es : match.home_name_en) || match.home_name;
   const awayName = (State.lang === 'es' ? match.away_name_es : match.away_name_en) || match.away_name;
 
-  // Marcador o línea de hora
+  // Marcador o linea de hora en zona del usuario
   let scoreHtml;
   if (hasScore) {
     const htHtml = (match.home_score_ht !== null)
-      ? `<span class="score-ht">${match.home_score_ht}–${match.away_score_ht} ${I18n.t('halftime')}</span>`
+      ? '<span class="score-ht">' + match.home_score_ht + '–' + match.away_score_ht + ' ' + I18n.t('halftime') + '</span>'
       : '';
-    scoreHtml = `
-      <div class="score-main">${match.home_score} <span class="score-dash">—</span> ${match.away_score}</div>
-      ${htHtml}
-      ${statusBadge(match.status)}
-    `;
+    scoreHtml =
+      '<div class="score-main">' + match.home_score + ' <span class="score-dash">—</span> ' + match.away_score + '</div>' +
+      htHtml + statusBadge(match.status);
   } else {
     const localTime = TZ.time(match.match_date);
-    scoreHtml = `
-      <div class="match-time">${localTime}</div>
-      ${statusBadge(match.status)}
-    `;
+    scoreHtml =
+      '<div class="match-time">' + localTime + '</div>' +
+      statusBadge(match.status);
   }
 
-  // Grupo y jornada
   const groupInfo = match.group_name
-    ? `${I18n.t('group')} ${match.group_name} · ${I18n.t('matchday')} ${match.matchday || 1}`
+    ? I18n.t('group') + ' ' + match.group_name + ' · ' + I18n.t('matchday') + ' ' + (match.matchday || 1)
     : stageLabel(match.stage);
 
-  // Info de estadio (sección expandible)
   const venueHtml = match.venue
-    ? `<span>🏟 ${match.venue}${match.city ? ', ' + match.city : ''}</span>`
+    ? '<span>🏟 ' + match.venue + (match.city ? ', ' + match.city : '') + '</span>'
     : '';
 
-  return `
-    <div class="match-card ${isLive ? 'live' : ''} ${isFinished ? 'finished' : ''}"
-         onclick="toggleMatchDetail(this)" style="--i:0">
-      <div class="team-block home">
-        ${flagImg(match.home_iso, match.home_tla, homeName)}
-        <div>
-          <div class="team-name full">${homeName}</div>
-          <div class="team-tla">${match.home_tla}</div>
-        </div>
-      </div>
+  // Hora completa con dia de semana en el tooltip del horario
+  const fullTime = TZ.format(match.match_date, { weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false });
 
-      <div class="match-score">
-        <div class="match-meta">${groupInfo}</div>
-        ${scoreHtml}
-      </div>
+  // Banner "PROXIMO PARTIDO" — solo visible en el primer partido pendiente
+  const nextBanner = isNext
+    ? '<div class="next-match-label">▶ ' + I18n.t('up_next') + '</div>'
+    : '';
 
-      <div class="team-block away">
-        ${flagImg(match.away_iso, match.away_tla, awayName)}
-        <div>
-          <div class="team-name full">${awayName}</div>
-          <div class="team-tla">${match.away_tla}</div>
-        </div>
-      </div>
+  const cardClass = 'match-card' +
+    (isLive     ? ' live'       : '') +
+    (isFinished ? ' finished'   : '') +
+    (isNext     ? ' next-match' : '');
 
-      <div class="match-extra">
-        ${venueHtml}
-        <span>🕐 ${TZ.format(match.match_date, { weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false })}</span>
-      </div>
-    </div>
-  `;
+  return (
+    '<div class="' + cardClass + '" onclick="toggleMatchDetail(this)" style="--i:0">' +
+      nextBanner +
+      '<div class="team-block home">' +
+        flagImg(match.home_iso, match.home_tla, homeName) +
+        '<div>' +
+          '<div class="team-name full">' + homeName + '</div>' +
+          '<div class="team-tla">' + match.home_tla + '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="match-score">' +
+        '<div class="match-meta">' + groupInfo + '</div>' +
+        scoreHtml +
+      '</div>' +
+      '<div class="team-block away">' +
+        flagImg(match.away_iso, match.away_tla, awayName) +
+        '<div>' +
+          '<div class="team-name full">' + awayName + '</div>' +
+          '<div class="team-tla">' + match.away_tla + '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="match-extra">' +
+        venueHtml +
+        '<span>🕐 ' + fullTime + '</span>' +
+      '</div>' +
+    '</div>'
+  );
 }
 
-/** Expande/colapsa el detalle de un partido al hacer clic */
-function toggleMatchDetail(el) {
-  el.classList.toggle('expanded');
-}
+function toggleMatchDetail(el) { el.classList.toggle('expanded'); }
 
-/* ── Renderizado: pestaña "Hoy" ──────────────────────────── */
+/* ── Pestaña "Hoy" ──────────────────────────────────────── */
 
 function renderToday() {
   const container = document.getElementById('tab-today');
-  const matches   = State.data?.today || [];
+  // Incluir partidos de hoy + partidos en vivo (pueden ser de ayer en UTC)
+  const todayMatches = (State.data && State.data.today) ? State.data.today : [];
 
-  if (!matches.length) {
-    container.innerHTML = `<div class="empty-state">
-      <h3>📅</h3><p>${I18n.t('no_matches_today')}</p>
-    </div>`;
+  // Ordenar cronologicamente por hora del partido
+  const sorted = todayMatches.slice().sort(function(a, b) {
+    return new Date(a.match_date) - new Date(b.match_date);
+  });
+
+  if (!sorted.length) {
+    container.innerHTML = '<div class="empty-state"><h3>📅</h3><p>' + I18n.t('no_matches_today') + '</p></div>';
     return;
   }
 
-  container.innerHTML = matches.map(renderMatchCard).join('');
+  // Proximo partido entre los de hoy
+  const nextId = findNextMatchId(sorted);
+  container.innerHTML = sorted.map(function(m) {
+    return renderMatchCard(m, m.id === nextId);
+  }).join('');
 }
 
-/* ── Renderizado: pestaña "Todos los Partidos" ───────────── */
+/* ── Pestaña "Todos los Partidos" ────────────────────────── */
 
 /**
- * Agrupa los partidos por fecha LOCAL del usuario (no UTC),
- * para que un partido a las 23:00 ET aparezca el día correcto.
+ * Re-agrupa todos los partidos por fecha LOCAL del usuario,
+ * no por UTC, para que los horarios nocturnos aparezcan el dia correcto.
+ * Orden cronologico dentro de cada dia.
  */
 function renderAllMatches() {
   const container = document.getElementById('tab-matches');
-  const matchesByDate = State.data?.matches || {};
+
+  // CLAVE CORRECTA: 'all', no 'matches' (buildPayload usa 'all')
+  const matchesByDate = (State.data && State.data.all) ? State.data.all : {};
 
   // Re-agrupar por fecha LOCAL del usuario
   const localGrouped = {};
-  Object.values(matchesByDate).flat().forEach(m => {
-    const key = TZ.localDateKey(m.match_date);
-    if (!localGrouped[key]) localGrouped[key] = [];
-    localGrouped[key].push(m);
+  const allFlat = [];
+  Object.values(matchesByDate).forEach(function(dayArr) {
+    if (!Array.isArray(dayArr)) return;
+    dayArr.forEach(function(m) {
+      const key = TZ.localDateKey(m.match_date);
+      if (!localGrouped[key]) localGrouped[key] = [];
+      localGrouped[key].push(m);
+      allFlat.push(m);
+    });
   });
 
   const keys = Object.keys(localGrouped).sort();
   if (!keys.length) {
-    container.innerHTML = `<div class="empty-state"><h3>⚽</h3><p>${I18n.t('no_matches')}</p></div>`;
+    container.innerHTML = '<div class="empty-state"><h3>⚽</h3><p>' + I18n.t('no_matches') + '</p></div>';
     return;
   }
 
-  // Etiquetas especiales para hoy/mañana/ayer
-  const todayKey    = TZ.localDateKey(new Date().toISOString());
-  const tomorrowKey = TZ.localDateKey(new Date(Date.now() + 86400000).toISOString());
-  const yesterdayKey= TZ.localDateKey(new Date(Date.now() - 86400000).toISOString());
+  // Ordenar cada dia cronologicamente
+  keys.forEach(function(k) {
+    localGrouped[k].sort(function(a, b) {
+      return new Date(a.match_date) - new Date(b.match_date);
+    });
+  });
 
-  container.innerHTML = keys.map(dateKey => {
+  // Proximo partido de todos (para el indicador global)
+  State.nextMatchId = findNextMatchId(allFlat);
+
+  // Fechas especiales para etiquetas
+  const todayKey     = TZ.localDateKey(new Date().toISOString());
+  const tomorrowKey  = TZ.localDateKey(new Date(Date.now() + 86400000).toISOString());
+  const yesterdayKey = TZ.localDateKey(new Date(Date.now() - 86400000).toISOString());
+
+  container.innerHTML = keys.map(function(dateKey) {
     let label = TZ.dateLabel(dateKey);
     let extra = '';
-    if (dateKey === todayKey)     extra = ` — <strong style="color:var(--fifa-gold)">${I18n.t('today')}</strong>`;
-    if (dateKey === tomorrowKey)  extra = ` — <strong style="color:#66aaff">${I18n.t('tomorrow')}</strong>`;
-    if (dateKey === yesterdayKey) extra = ` — <span style="color:var(--text-3)">${I18n.t('yesterday')}</span>`;
+    if (dateKey === todayKey)     extra = ' — <strong style="color:var(--fifa-gold)">'  + I18n.t('today')     + '</strong>';
+    if (dateKey === tomorrowKey)  extra = ' — <strong style="color:#66aaff">'            + I18n.t('tomorrow')  + '</strong>';
+    if (dateKey === yesterdayKey) extra = ' — <span style="color:var(--text-3)">'        + I18n.t('yesterday') + '</span>';
 
-    const cards = localGrouped[dateKey].map(renderMatchCard).join('');
-    return `
-      <div class="date-block">
-        <div class="date-header">
-          <span class="date-label">${label}${extra}</span>
-          <span class="date-sub">${localGrouped[dateKey].length} partidos</span>
-        </div>
-        ${cards}
-      </div>
-    `;
+    const cnt   = localGrouped[dateKey].length;
+    const cards = localGrouped[dateKey].map(function(m) {
+      return renderMatchCard(m, m.id === State.nextMatchId);
+    }).join('');
+
+    return (
+      '<div class="date-block">' +
+        '<div class="date-header">' +
+          '<span class="date-label">' + label + extra + '</span>' +
+          '<span class="date-sub">' + cnt + ' ' + (cnt === 1 ? 'partido' : 'partidos') + '</span>' +
+        '</div>' +
+        cards +
+      '</div>'
+    );
   }).join('');
 }
 
-/* ── Renderizado: pestaña "Grupos" ──────────────────────── */
+/* ── Pestaña "Grupos" ───────────────────────────────────── */
 
 function renderGroups() {
-  const container  = document.getElementById('tab-groups');
-  const standings  = State.data?.standings || {};
-  const groups     = Object.keys(standings).sort();
+  const container = document.getElementById('tab-groups');
+  const standings = (State.data && State.data.standings) ? State.data.standings : {};
+  const groups    = Object.keys(standings).sort();
 
   if (!groups.length) {
-    container.innerHTML = `<div class="empty-state"><h3>📊</h3><p>${I18n.t('no_standings')}</p></div>`;
+    container.innerHTML = '<div class="empty-state"><h3>📊</h3><p>' + I18n.t('no_standings') + '</p></div>';
     return;
   }
 
-  container.innerHTML = `<div class="groups-grid">` + groups.map(g => renderGroupCard(g, standings[g])).join('') + `</div>`;
+  container.innerHTML = '<div class="groups-grid">' +
+    groups.map(function(g) { return renderGroupCard(g, standings[g]); }).join('') +
+  '</div>';
 }
 
 /**
- * Genera la tarjeta de posiciones de un grupo.
- * Las primeras 2 posiciones se destacan con dorado (clasifican directo).
- * La posición 3 se destaca en azul (posible clasificado como mejor tercero).
+ * Tarjeta de posiciones de un grupo.
+ * Top-2: dorado (clasifican directo). Top-3: azul (posible mejor tercero).
  */
 function renderGroupCard(group, rows) {
-  const cols = ['pos', 'team', 'played', 'won', 'drawn', 'lost', 'goals_for', 'goals_against', 'goal_diff', 'points'];
-  const headers = cols.map(c => `<th>${I18n.t(c)}</th>`).join('');
+  const cols    = ['pos','team','played','won','drawn','lost','goals_for','goals_against','goal_diff','points'];
+  const headers = cols.map(function(c) { return '<th>' + I18n.t(c) + '</th>'; }).join('');
 
-  const rowsHtml = rows.map(row => {
-    const name    = (State.lang === 'es' ? row.name_es : row.name_en) || row.name;
-    const posClass = row.position <= 2 ? `pos-${row.position}` : (row.position === 3 ? 'pos-3' : '');
+  const rowsHtml = rows.map(function(row) {
+    const name     = (State.lang === 'es' ? row.name_es : row.name_en) || row.name;
+    const posClass = row.position <= 2 ? 'pos-' + row.position : (row.position === 3 ? 'pos-3' : '');
     const gdCls    = row.goal_difference > 0 ? 'positive' : (row.goal_difference < 0 ? 'negative' : '');
-
-    return `<tr>
-      <td class="pos-cell ${posClass}">${row.position}</td>
-      <td>
-        <div class="st-team">
-          ${row.iso_code ? `<img class="st-flag" src="${flagUrl(row.iso_code)}" alt="${name}" loading="lazy"
-               onerror="this.style.display='none'">` : ''}
-          <div>
-            <div class="st-name">${name}</div>
-            <div class="st-tla">${row.tla}</div>
-          </div>
-        </div>
-      </td>
-      <td>${row.played}</td>
-      <td>${row.won}</td>
-      <td>${row.drawn}</td>
-      <td>${row.lost}</td>
-      <td>${row.goals_for}</td>
-      <td>${row.goals_against}</td>
-      <td class="gd-cell ${gdCls}">${row.goal_difference > 0 ? '+' : ''}${row.goal_difference}</td>
-      <td class="pts-cell">${row.points}</td>
-    </tr>`;
+    const gdPfx    = row.goal_difference > 0 ? '+' : '';
+    const flag     = row.iso_code
+      ? '<img class="st-flag" src="' + flagUrl(row.iso_code) + '" alt="' + name + '" loading="lazy" onerror="this.style.display=\'none\'">'
+      : '';
+    return (
+      '<tr>' +
+        '<td class="pos-cell ' + posClass + '">' + row.position + '</td>' +
+        '<td><div class="st-team">' + flag +
+          '<div><div class="st-name">' + name + '</div><div class="st-tla">' + row.tla + '</div></div>' +
+        '</div></td>' +
+        '<td>' + row.played   + '</td>' +
+        '<td>' + row.won      + '</td>' +
+        '<td>' + row.drawn    + '</td>' +
+        '<td>' + row.lost     + '</td>' +
+        '<td>' + row.goals_for     + '</td>' +
+        '<td>' + row.goals_against + '</td>' +
+        '<td class="gd-cell ' + gdCls + '">' + gdPfx + row.goal_difference + '</td>' +
+        '<td class="pts-cell">' + row.points + '</td>' +
+      '</tr>'
+    );
   }).join('');
 
-  return `
-    <div class="group-card">
-      <div class="group-card-header">
-        <div class="group-letter">${group}</div>
-        <div class="group-title">${I18n.t('group')} ${group}</div>
-      </div>
-      <table class="standings-table">
-        <thead><tr>${headers}</tr></thead>
-        <tbody>${rowsHtml}</tbody>
-      </table>
-    </div>
-  `;
+  return (
+    '<div class="group-card">' +
+      '<div class="group-card-header">' +
+        '<div class="group-letter">' + group + '</div>' +
+        '<div class="group-title">' + I18n.t('group') + ' ' + group + '</div>' +
+      '</div>' +
+      '<table class="standings-table">' +
+        '<thead><tr>' + headers + '</tr></thead>' +
+        '<tbody>' + rowsHtml + '</tbody>' +
+      '</table>' +
+    '</div>'
+  );
 }
 
-/* ── Renderizado: controles del header ──────────────────── */
+/* ── Controles del header ────────────────────────────────── */
 
-/** Pobla el <select> de zonas horarias con las opciones disponibles */
+/** Pobla el select de zonas horarias organizado por pais */
 function buildTimezoneSelect() {
-  const sel  = document.getElementById('tz-select');
+  const sel = document.getElementById('tz-select');
   if (!sel) return;
 
-  sel.innerHTML = TZ.getTimezones().map(item => {
-    if (item.disabled) {
-      return `<option disabled>${item.label}</option>`;
-    }
-    const selected = item.tz === State.tz ? 'selected' : '';
-    return `<option value="${item.tz}" ${selected}>${item.label}</option>`;
+  sel.innerHTML = TZ.getTimezones().map(function(item) {
+    if (item.disabled) return '<option disabled>' + item.label + '</option>';
+    return '<option value="' + item.tz + '"' + (item.tz === State.tz ? ' selected' : '') + '>' + item.label + '</option>';
   }).join('');
 
-  sel.addEventListener('change', () => {
+  sel.addEventListener('change', function() {
     State.tz = sel.value;
     localStorage.setItem('wc_tz', State.tz);
-    renderCurrentTab();   // Re-renderizar con la nueva zona
+    renderCurrentTab();
   });
 }
 
-/** Actualiza el indicador de última actualización */
 function updateLastUpdatedBar() {
-  const el  = document.getElementById('last-updated');
-  if (!el || !State.data?.status?.last_updated) return;
+  const el = document.getElementById('last-updated');
+  if (!el || !State.data || !State.data.status || !State.data.status.last_updated) return;
 
   const dt  = new Date(State.data.status.last_updated);
   const fmt = new Intl.DateTimeFormat(State.lang === 'es' ? 'es-419' : 'en-US', {
     timeZone: State.tz, day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
   });
 
-  const hasLive = State.data.status.has_live;
-  el.innerHTML  = `
-    ${hasLive ? '<span class="dot-live"></span>' : ''}
-    ${I18n.t('last_updated')}: <strong>${fmt.format(dt)}</strong>
-  `;
+  // has_live esta en el nivel raiz del payload, no dentro de status
+  const hasLive = State.data.has_live;
+  el.innerHTML  =
+    (hasLive ? '<span class="dot-live"></span>' : '') +
+    I18n.t('last_updated') + ': <strong>' + fmt.format(dt) + '</strong>';
 }
 
-/** Muestra u oculta el banner de aviso de modo demo */
 function updateDemoBanner() {
   const banner = document.getElementById('demo-banner');
   if (!banner) return;
-  const isDemo = State.data?.status?.demo_mode;
+  const isDemo = State.data && State.data.status && State.data.status.demo_mode;
   banner.style.display = isDemo ? 'flex' : 'none';
   banner.textContent   = isDemo ? I18n.t('demo_mode') : '';
 }
 
-/* ── Renderizado: pestaña activa ────────────────────────── */
+/* ── Pestaña activa ─────────────────────────────────────── */
 
 function renderCurrentTab() {
-  ['today', 'matches', 'groups'].forEach(t => {
-    document.getElementById(`tab-${t}`).style.display = State.tab === t ? 'block' : 'none';
-    document.getElementById(`btn-${t}`).classList.toggle('active', State.tab === t);
+  ['today', 'matches', 'groups'].forEach(function(t) {
+    document.getElementById('tab-' + t).style.display = State.tab === t ? 'block' : 'none';
+    document.getElementById('btn-' + t).classList.toggle('active', State.tab === t);
   });
 
   if (State.tab === 'today')   renderToday();
@@ -506,73 +550,81 @@ function renderCurrentTab() {
   updateLiveBadge();
 }
 
-/** Actualiza el badge "EN VIVO" en la pestaña Hoy */
 function updateLiveBadge() {
-  const badge   = document.getElementById('live-count');
+  const badge = document.getElementById('live-count');
   if (!badge) return;
-  const today   = State.data?.today || [];
-  const liveCount = today.filter(m => ['IN_PLAY', 'PAUSED'].includes(m.status)).length;
-  badge.style.display  = liveCount > 0 ? 'inline' : 'none';
-  badge.textContent    = liveCount;
+  const today     = (State.data && State.data.today) ? State.data.today : [];
+  const liveCount = today.filter(function(m) { return m.status === 'IN_PLAY' || m.status === 'PAUSED'; }).length;
+  badge.style.display = liveCount > 0 ? 'inline' : 'none';
+  badge.textContent   = liveCount;
 }
 
-/* ── Renderizado: filtros de grupo ──────────────────────── */
+/* ── Filtros de grupo ───────────────────────────────────── */
 
 function buildGroupFilters() {
   const container = document.getElementById('group-filters');
   if (!container) return;
 
   const groups = ['A','B','C','D','E','F','G','H','I','J','K','L'];
-  const all    = `<button class="group-filter-btn active" id="filter-all" onclick="setGroupFilter(null)">${I18n.t('all_groups')}</button>`;
-  const btns   = groups.map(g =>
-    `<button class="group-filter-btn" id="filter-${g}" onclick="setGroupFilter('${g}')">${I18n.t('group')} ${g}</button>`
-  ).join('');
+  const allBtn = '<button class="group-filter-btn active" id="filter-all" onclick="setGroupFilter(null)">' + I18n.t('all_groups') + '</button>';
+  const btns   = groups.map(function(g) {
+    return '<button class="group-filter-btn" id="filter-' + g + '" onclick="setGroupFilter(\'' + g + '\')">' + I18n.t('group') + ' ' + g + '</button>';
+  }).join('');
 
-  container.innerHTML = all + btns;
+  container.innerHTML = allBtn + btns;
 }
 
-/** Activa un filtro de grupo y recarga los datos */
 async function setGroupFilter(group) {
   State.group = group;
-  document.querySelectorAll('.group-filter-btn').forEach(b => b.classList.remove('active'));
-  const target = document.getElementById(group ? `filter-${group}` : 'filter-all');
+  document.querySelectorAll('.group-filter-btn').forEach(function(b) { b.classList.remove('active'); });
+  const target = document.getElementById(group ? 'filter-' + group : 'filter-all');
   if (target) target.classList.add('active');
   await loadData();
 }
 
-/* ── Toast de notificación ──────────────────────────────── */
+/* ── Toast ──────────────────────────────────────────────── */
 
 let _toastTimer;
-function showToast(msg, type = 'success') {
-  const toast  = document.getElementById('toast');
+function showToast(msg, type) {
+  type = type || 'success';
+  const toast = document.getElementById('toast');
   if (!toast) return;
   clearTimeout(_toastTimer);
   toast.textContent = msg;
-  toast.className   = `toast ${type} show`;
-  _toastTimer = setTimeout(() => toast.classList.remove('show'), 3500);
+  toast.className   = 'toast ' + type + ' show';
+  _toastTimer = setTimeout(function() { toast.classList.remove('show'); }, 3500);
 }
 
 /* ── Flujo principal ────────────────────────────────────── */
 
 /**
- * Carga los datos desde el backend PHP y actualiza el estado.
- * Si la petición falla, muestra un toast de error y conserva
- * los datos anteriores en pantalla.
+ * Carga datos del backend PHP.
+ * Si el servidor responde con demo_mode=true, auto-dispara
+ * una actualizacion contra ESPN (una sola vez por sesion)
+ * para migrar a datos reales sin que el usuario pulse nada.
  */
+let _autoUpdateDone = false;
+
 async function loadData() {
   try {
     State.data = await API.loadData();
+
+    // Recalcular proximo partido con los datos frescos
+    State.nextMatchId = findNextMatchId(getAllMatchesFlat());
+
     renderCurrentTab();
-  } catch (err) {
+
+    // Auto-actualizar si estamos en demo y aun no se intento en esta sesion
+    if (!_autoUpdateDone && State.data && State.data.status && State.data.status.demo_mode) {
+      _autoUpdateDone = true;
+      triggerUpdate();  // No se await: corre en segundo plano
+    }
+  } catch(err) {
     console.error('Error cargando datos:', err);
     showToast(I18n.t('update_error'), 'error');
   }
 }
 
-/**
- * Dispara la actualización en el servidor (llama a football-data.org)
- * y luego recarga los datos locales.
- */
 async function triggerUpdate() {
   if (State.updating) return;
   State.updating = true;
@@ -588,7 +640,7 @@ async function triggerUpdate() {
     } else {
       showToast(result.message || I18n.t('update_error'), 'error');
     }
-  } catch (err) {
+  } catch(err) {
     showToast(I18n.t('update_error'), 'error');
   } finally {
     State.updating = false;
@@ -596,17 +648,15 @@ async function triggerUpdate() {
   }
 }
 
-/** Cambia el idioma de la interfaz y re-renderiza */
 async function setLanguage(lang) {
   await I18n.load(lang);
-  document.querySelectorAll('.lang-btn').forEach(b => {
+  document.querySelectorAll('.lang-btn').forEach(function(b) {
     b.classList.toggle('active', b.dataset.lang === lang);
   });
-  buildGroupFilters();   // Re-construir etiquetas de filtros
+  buildGroupFilters();
   renderCurrentTab();
 }
 
-/** Cambia la pestaña activa */
 function setTab(tab) {
   State.tab = tab;
   renderCurrentTab();
@@ -617,44 +667,34 @@ function setTab(tab) {
 let _autoRefreshInterval;
 
 /**
- * Si hay partidos en vivo, programa auto-refresh cada 60 segundos.
- * Si no hay partidos en vivo, cancela el auto-refresh.
+ * Activa auto-refresh cada 60s cuando hay partidos en vivo.
+ * has_live esta en State.data.has_live (nivel raiz), no en status.
  */
 function manageAutoRefresh() {
-  const hasLive = State.data?.status?.has_live;
-
+  const hasLive = State.data && State.data.has_live;
   clearInterval(_autoRefreshInterval);
   if (hasLive) {
-    _autoRefreshInterval = setInterval(() => {
+    _autoRefreshInterval = setInterval(function() {
       if (!State.updating) triggerUpdate();
-    }, 60_000);
+    }, 60000);
   }
 }
 
-/* ── Inicialización ─────────────────────────────────────── */
+/* ── Inicializacion ─────────────────────────────────────── */
 
-/**
- * Punto de entrada: se llama cuando el DOM está listo.
- * Orden de operaciones:
- *  1. Cargar idioma
- *  2. Construir controles del header (timezone, filtros)
- *  3. Cargar datos iniciales
- *  4. Configurar auto-refresh si hay partidos en vivo
- */
 async function init() {
   await I18n.load(State.lang);
   buildTimezoneSelect();
   buildGroupFilters();
 
-  // Aplicar textos i18n a elementos estáticos del HTML
-  document.querySelectorAll('[data-i18n]').forEach(el => {
+  document.querySelectorAll('[data-i18n]').forEach(function(el) {
     el.textContent = I18n.t(el.dataset.i18n);
   });
 
-  // Mostrar spinner mientras carga
-  ['today','matches','groups'].forEach(t => {
-    const el = document.getElementById(`tab-${t}`);
-    if (el) el.innerHTML = `<div class="loading-overlay"><div class="spinner"></div></div>`;
+  // Spinner mientras carga
+  ['today','matches','groups'].forEach(function(t) {
+    const el = document.getElementById('tab-' + t);
+    if (el) el.innerHTML = '<div class="loading-overlay"><div class="spinner"></div></div>';
   });
 
   await loadData();

@@ -2,7 +2,7 @@
 
 > Calendario completo, resultados en tiempo real y tabla de posiciones de la **Copa del Mundo FIFA 2026** (USA · México · Canadá).
 
-[![Version](https://img.shields.io/badge/version-V1.2.0-gold)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-V1.3.0-gold)](CHANGELOG.md)
 [![PHP](https://img.shields.io/badge/PHP-5.4%2B-blue)](https://php.net)
 [![License](https://img.shields.io/badge/license-Apache%202.0-green)](LICENSE)
 

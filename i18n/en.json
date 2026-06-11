@@ -61,5 +61,6 @@
   "hosts": "Host",
   "search_teams": "Search teams...",
   "match_detail": "Match Detail",
-  "close": "Close"
+  "close": "Close",
+  "up_next": "Up Next"
 }
