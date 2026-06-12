@@ -62,5 +62,7 @@
   "search_teams": "Search teams...",
   "match_detail": "Match Detail",
   "close": "Close",
-  "up_next": "Up Next"
+  "up_next": "Up Next",
+  "timer_off": "Timer: Off",
+  "timer_label": "Auto-refresh"
 }

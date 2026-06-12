@@ -120,6 +120,36 @@ button { cursor: pointer; border: none; background: none; }
 .tz-select option { background: #1a1a2e; color: var(--text-1); }
 .tz-select:hover { border-color: var(--fifa-gold); }
 
+/* ── Timer de auto-actualización ───────────────────────── */
+.timer-control {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.refresh-timer-select {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.74rem;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.refresh-timer-select:hover { border-color: var(--fifa-gold); }
+.refresh-timer-select option { background: #1a1a2e; color: var(--text-1); }
+.timer-badge {
+  background: var(--fifa-gold);
+  color: #000;
+  border-radius: 4px;
+  padding: 0.1rem 0.4rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  min-width: 3rem;
+  text-align: center;
+}
+
 /* ── Botón Actualizar ───────────────────────────────────── */
 .btn-update {
   background: linear-gradient(135deg, var(--fifa-red), #990000);

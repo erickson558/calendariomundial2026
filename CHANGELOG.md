@@ -5,6 +5,16 @@ Versionado según [Semantic Versioning](https://semver.org/lang/es/) — `Vx.x.x
 
 ---
 
+## [V1.5.0] — 2026-06-12
+
+### Añadido
+- **Timer de auto-actualización configurable**: nuevo selector en el header con opciones Off / 30s / 1min / 2min / 5min. Muestra cuenta regresiva en badge dorado y persiste la selección en localStorage. Se reinicia después de cada actualización exitosa
+
+### Corregido
+- **Grupos muestran la tabla filtrada**: al seleccionar un grupo en el filtro, la pestaña Grupos ahora muestra solo las posiciones de ese grupo. Al seleccionar "Todos los Grupos" se vuelve a mostrar la cuadrícula completa de 12 grupos
+
+---
+
 ## [V1.4.0] — 2026-06-11
 
 ### Añadido

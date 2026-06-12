@@ -60,6 +60,18 @@ $version = APP_VERSION;
       <!-- Selector de zona horaria -->
       <select id="tz-select" class="tz-select" title="Zona Horaria" aria-label="Zona Horaria"></select>
 
+      <!-- Timer de auto-actualización -->
+      <div class="timer-control">
+        <select id="refresh-timer" class="refresh-timer-select" onchange="setRefreshTimer(+this.value)" aria-label="Auto-refresh" title="Auto-actualizar">
+          <option value="0" data-i18n="timer_off">Apagado</option>
+          <option value="30">30s</option>
+          <option value="60">1 min</option>
+          <option value="120">2 min</option>
+          <option value="300">5 min</option>
+        </select>
+        <span id="timer-badge" class="timer-badge" style="display:none"></span>
+      </div>
+
       <!-- Botón Actualizar -->
       <button id="btn-update" class="btn-update" onclick="triggerUpdate()" aria-label="Actualizar resultados">
         <svg class="icon-update" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">

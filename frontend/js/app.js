@@ -13,14 +13,15 @@
 
 /* ── Estado global ──────────────────────────────────────── */
 const State = {
-  lang:        localStorage.getItem('wc_lang') || 'es',
-  tz:          localStorage.getItem('wc_tz')   || Intl.DateTimeFormat().resolvedOptions().timeZone,
-  tab:         'today',
-  group:       null,
-  data:        null,
-  updating:    false,
-  i18n:        {},
-  nextMatchId: null,   // ID del proximo partido programado
+  lang:         localStorage.getItem('wc_lang') || 'es',
+  tz:           localStorage.getItem('wc_tz')   || Intl.DateTimeFormat().resolvedOptions().timeZone,
+  tab:          'today',
+  group:        null,
+  data:         null,
+  updating:     false,
+  i18n:         {},
+  nextMatchId:  null,
+  timerSeconds: 0,
 };
 
 /* ── Modulo i18n ────────────────────────────────────────── */
@@ -435,7 +436,12 @@ function renderAllMatches() {
 function renderGroups() {
   const container = document.getElementById('tab-groups');
   const standings = (State.data && State.data.standings) ? State.data.standings : {};
-  const groups    = Object.keys(standings).sort();
+  const allGroups = Object.keys(standings).sort();
+
+  // Si hay un filtro activo, mostrar solo ese grupo; si no, mostrar todos
+  const groups = State.group
+    ? (standings[State.group] ? [State.group] : allGroups)
+    : allGroups;
 
   if (!groups.length) {
     container.innerHTML = '<div class="empty-state"><h3>📊</h3><p>' + I18n.t('no_standings') + '</p></div>';
@@ -642,6 +648,11 @@ async function triggerUpdate() {
     if (result.success) {
       showToast(result.message || I18n.t('update_success'), 'success');
       await loadData();
+      // Reiniciar cuenta atras despues de cada actualizacion exitosa
+      if (_timerInterval && State.timerSeconds) {
+        _timerCountdown = State.timerSeconds;
+        updateTimerBadge(_timerCountdown);
+      }
     } else {
       showToast(result.message || I18n.t('update_error'), 'error');
     }
@@ -665,6 +676,45 @@ async function setLanguage(lang) {
 function setTab(tab) {
   State.tab = tab;
   renderCurrentTab();
+}
+
+/* ── Timer de auto-actualización configurable ───────────── */
+
+let _timerInterval  = null;
+let _timerCountdown = 0;
+
+/**
+ * Activa el timer periodico de actualizacion con el intervalo elegido
+ * por el usuario. Persiste la seleccion en localStorage.
+ */
+function setRefreshTimer(seconds) {
+  State.timerSeconds = seconds;
+  localStorage.setItem('timerSeconds', seconds ? String(seconds) : '0');
+  clearInterval(_timerInterval);
+  _timerInterval  = null;
+  _timerCountdown = 0;
+  updateTimerBadge(0);
+  if (!seconds) return;
+  _timerCountdown = seconds;
+  updateTimerBadge(_timerCountdown);
+  _timerInterval = setInterval(function() {
+    _timerCountdown--;
+    updateTimerBadge(_timerCountdown);
+    if (_timerCountdown <= 0) {
+      _timerCountdown = seconds;
+      if (!State.updating) triggerUpdate();
+    }
+  }, 1000);
+}
+
+function updateTimerBadge(remaining) {
+  const badge = document.getElementById('timer-badge');
+  if (!badge) return;
+  if (!remaining || remaining <= 0) { badge.style.display = 'none'; return; }
+  badge.style.display = 'inline-block';
+  const m = Math.floor(remaining / 60);
+  const s = remaining % 60;
+  badge.textContent = m > 0 ? m + 'm ' + (s < 10 ? '0' : '') + s + 's' : remaining + 's';
 }
 
 /* ── Auto-refresh para partidos en vivo ─────────────────── */
@@ -691,6 +741,12 @@ async function init() {
   await I18n.load(State.lang);
   buildTimezoneSelect();
   buildGroupFilters();
+
+  // Restaurar timer guardado
+  const savedTimer = parseInt(localStorage.getItem('timerSeconds') || '0', 10);
+  const timerSel   = document.getElementById('refresh-timer');
+  if (timerSel && savedTimer) timerSel.value = savedTimer;
+  if (savedTimer) setRefreshTimer(savedTimer);
 
   document.querySelectorAll('[data-i18n]').forEach(function(el) {
     el.textContent = I18n.t(el.dataset.i18n);
