@@ -86,16 +86,20 @@ class Fetcher {
      * Usa queries de un solo dia porque el formato de rango de ESPN
      * no filtra correctamente (devuelve rondas de eliminacion en vez
      * de la fecha solicitada). Queries de dia unico si funcionan.
-     * 7-8 requests x 0.2s = ~1.5s, aceptable.
+     * 8-9 requests x 0.2s = ~1.8s, aceptable.
      */
     public static function getAllMatches() {
         $today    = new DateTime('now', new DateTimeZone('UTC'));
         $wcStart  = new DateTime('2026-06-11', new DateTimeZone('UTC'));
         $wcEnd    = new DateTime('2026-07-19', new DateTimeZone('UTC'));
 
-        // Ventana: ayer hasta +6 dias (captura partidos en vivo y proximos)
+        // Ventana: 2 dias atras hasta +6 dias.
+        // 2 dias atras cubre el caso donde ESPN agrupa un partido UTC de
+        // madrugada (ej. 02:00Z del dia X) bajo el scoreboard del dia X-1.
+        // Eso da una ventana de 48h para recuperar marcadores que fallaron
+        // por un error transitorio de red en la query anterior.
         $start = clone $today;
-        $start->modify('-1 day');
+        $start->modify('-2 days');
         if ($start < $wcStart) $start = clone $wcStart;
 
         $end = clone $today;
