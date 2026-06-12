@@ -51,19 +51,19 @@ class DataService {
         $matches   = Fetcher::getAllMatches();
         $standings = Fetcher::getStandings();
 
-        // Sin datos de ESPN: activar/mantener modo demo
+        // Sin datos de ESPN: marcar como demo y mantener datos sembrados
         if (empty($matches)) {
             Database::setSetting('is_demo', '1');
             Database::setSetting('last_updated', date('c'));
             return false;
         }
 
-        // Transicion de demo a datos REALES:
-        // borrar los partidos de muestra (external_id NULL) y posiciones demo
-        // para que no se mezclen con los datos reales de ESPN
-        if ($isDemo === '1') {
+        // ESPN devolvio datos reales.
+        // upsertMatch() actualiza los partidos sembrados en-lugar
+        // (no se borran; se les asigna external_id + marcador + estado).
+        // Los standings si se reconstruyen desde ESPN si los devuelve.
+        if (!empty($standings)) {
             $db = Database::connect();
-            $db->exec("DELETE FROM matches WHERE external_id IS NULL");
             $db->exec("DELETE FROM standings");
         }
 
@@ -109,14 +109,19 @@ class DataService {
         return $grouped;
     }
 
-    /** Partidos cuya fecha UTC corresponde a hoy en el servidor */
+    /**
+     * Partidos de hoy (UTC). Incluye siempre los partidos en vivo
+     * aunque tecnicamente sean de ayer UTC (p.ej. partido a las 23:00 UTC).
+     */
     public static function getTodayMatches() {
         $matches = Database::getMatches();
         $today   = gmdate('Y-m-d');
 
         $filtered = array_filter($matches, function($m) use ($today) {
-            $raw = isset($m['match_date']) ? $m['match_date'] : '';
-            return substr($raw, 0, 10) === $today;
+            $raw    = isset($m['match_date']) ? $m['match_date'] : '';
+            $status = isset($m['status']) ? $m['status'] : '';
+            $isLive = $status === 'IN_PLAY' || $status === 'PAUSED';
+            return substr($raw, 0, 10) === $today || $isLive;
         });
 
         return array_values($filtered);

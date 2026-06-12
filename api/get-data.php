@@ -27,12 +27,11 @@ try {
         $group = null;
     }
 
-    // Auto-intentar ESPN solo en la primera carga (last_updated vacio)
-    // para evitar latencia en visitas posteriores.
-    // El usuario puede forzar actualizacion en cualquier momento con el boton.
-    $isDemo      = Database::getSetting('is_demo', '0');
+    // Auto-intentar ESPN en la primera carga (last_updated vacio).
+    // Esto reemplaza los partidos sembrados con datos en tiempo real de ESPN.
+    // En visitas posteriores el TTL de cache controla cuando volver a llamar ESPN.
     $lastUpdated = Database::getSetting('last_updated', '');
-    if ($isDemo === '1' && empty($lastUpdated)) {
+    if (empty($lastUpdated)) {
         DataService::refreshData();
     }
 

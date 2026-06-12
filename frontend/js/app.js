@@ -262,6 +262,9 @@ function renderMatchCard(match, isNext) {
   const homeName = (State.lang === 'es' ? match.home_name_es : match.home_name_en) || match.home_name;
   const awayName = (State.lang === 'es' ? match.away_name_es : match.away_name_en) || match.away_name;
 
+  // Fecha en zona del usuario (dia semana + dia + mes corto)
+  const localDate = TZ.format(match.match_date, { weekday: 'short', day: 'numeric', month: 'short' });
+
   // Marcador o linea de hora en zona del usuario
   let scoreHtml;
   if (hasScore) {
@@ -269,11 +272,13 @@ function renderMatchCard(match, isNext) {
       ? '<span class="score-ht">' + match.home_score_ht + '–' + match.away_score_ht + ' ' + I18n.t('halftime') + '</span>'
       : '';
     scoreHtml =
+      '<div class="match-date-small">' + localDate + '</div>' +
       '<div class="score-main">' + match.home_score + ' <span class="score-dash">—</span> ' + match.away_score + '</div>' +
       htHtml + statusBadge(match.status);
   } else {
     const localTime = TZ.time(match.match_date);
     scoreHtml =
+      '<div class="match-date-small">' + localDate + '</div>' +
       '<div class="match-time">' + localTime + '</div>' +
       statusBadge(match.status);
   }

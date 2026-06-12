@@ -351,6 +351,11 @@ button { cursor: pointer; border: none; background: none; }
   font-size: 0.7rem; color: var(--text-3);
   display: flex; align-items: center; gap: 0.3rem;
 }
+.match-date-small {
+  font-size: 0.68rem; color: var(--text-3);
+  text-transform: uppercase; letter-spacing: 0.08em;
+  margin-bottom: 0.05rem;
+}
 
 /* ── Vista rápida de tarjeta (mobile) ──────────────────── */
 .match-extra {

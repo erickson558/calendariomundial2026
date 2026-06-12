@@ -5,6 +5,24 @@ Versionado según [Semantic Versioning](https://semver.org/lang/es/) — `Vx.x.x
 
 ---
 
+## [V1.4.0] — 2026-06-11
+
+### Añadido
+- **Datos en tiempo real**: reemplazado cURL (fallaba con OpenSSL 0.9.8z vs TLS 1.2) por PowerShell `Invoke-WebRequest` que usa .NET con soporte TLS 1.2 nativo en Windows
+- **72 partidos reales sembrados**: calendario completo de fase de grupos (jornadas 1-3) con fechas UTC verificadas, venues y ciudades oficiales. La app muestra el calendario completo desde el primer clic
+- **12 grupos correctos (A-L)**: 48 equipos clasificados con grupos verificados en ESPN, FIFA y NBC Sports. Eliminados equipos que no clasificaron (Italia, Dinamarca, Jamaica, etc.)
+- **Fecha en tarjetas de partido**: cada tarjeta ahora muestra día + mes (ej. "Jue 11 Jun") en la zona horaria del usuario, además de la hora
+- **Standings iniciales**: los 12 grupos se muestran con todos los equipos desde el arranque (todos en 0 pts), ESPN actualiza los puntajes reales cuando hay partidos jugados
+
+### Corregido
+- **Modo demo eliminado en inicio**: la app arranca en modo real desde el primer clic. Si ESPN falla, se activa modo demo automáticamente como fallback
+- **Primera carga siempre consulta ESPN**: `last_updated` vacío dispara fetch a ESPN sin importar modo demo
+- **Partidos sembrados vs ESPN sin duplicados**: al recibir datos de ESPN se eliminan los partidos del seed (sin `external_id`) antes de insertar los reales
+- **Ciudad en partidos de ESPN**: `city` ya no se hardcodeaba como `null` en `upsertMatch()`
+- **Grupo derivado del equipo local**: si ESPN no provee el grupo en las notas del partido, se deriva del `group_name` del equipo sembrado
+
+---
+
 ## [V1.3.0] — 2026-06-11
 
 ### Añadido

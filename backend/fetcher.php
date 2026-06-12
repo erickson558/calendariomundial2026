@@ -5,63 +5,54 @@
  * =========================================================
  * Compatible con PHP 5.4+ (sin type hints, sin const privados)
  *
- * Consulta la API no-oficial de ESPN (sin clave, sin registro):
- *   https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/
+ * Usa PowerShell como proxy HTTP para soportar TLS 1.2:
+ *   PHP 5.4 + OpenSSL 0.9.8z (EasyPHP 14) no puede negociar
+ *   TLS 1.2 con servidores modernos. PowerShell usa .NET y
+ *   soporta TLS 1.2 sin problema en Windows 7+.
  *
- * ESPN no ofrece SLA pero es la unica opcion publica sin registro.
- * El modo demo se activa automaticamente si ESPN falla.
+ * ESPN no-oficial (sin clave, sin registro):
+ *   https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/
  */
 
 require_once dirname(__FILE__) . '/config.php';
 
 class Fetcher {
 
-    // PHP 5.4 no permite modificadores de acceso en class constants (requiere PHP 7.1).
-    // Se declaran como 'const' sin private/protected.
     const ESPN_BASE = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/';
-    const TIMEOUT   = 20;
+    const TIMEOUT   = 15;
 
-    // ── HTTP generico ─────────────────────────────────────
+    // ── HTTP via PowerShell ───────────────────────────────
 
     /**
-     * Peticion GET con cURL. Devuelve array vacio en caso de error
-     * para que el sistema degrade a modo demo sin mostrar fatales.
+     * Peticion GET usando PowerShell para sortear la limitacion
+     * de TLS 1.2 en cURL/OpenSSL 0.9.8z de EasyPHP 14.
+     * shell_exec esta disponible en EasyPHP por defecto.
      */
     public static function get($url) {
-        if (!function_exists('curl_init')) {
-            error_log('[Fetcher] cURL no disponible');
+        if (!function_exists('shell_exec')) {
+            error_log('[Fetcher] shell_exec no disponible');
             return array();
         }
 
-        $ch = curl_init($url);
-        curl_setopt_array($ch, array(
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_MAXREDIRS      => 3,
-            CURLOPT_TIMEOUT        => self::TIMEOUT,
-            CURLOPT_CONNECTTIMEOUT => 10,
-            CURLOPT_SSL_VERIFYPEER => false,
-            CURLOPT_USERAGENT      => 'Mozilla/5.0 (compatible; WorldCup2026Tracker/1.0)',
-            CURLOPT_HTTPHEADER     => array('Accept: application/json'),
-        ));
+        // Escapar comillas simples en la URL para PowerShell
+        $safe = str_replace("'", "''", $url);
 
-        $body = curl_exec($ch);
-        $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $err  = curl_error($ch);
-        curl_close($ch);
+        // Forzar TLS 1.2 antes de la peticion; catch devuelve cadena vacia
+        $cmd = 'powershell -NonInteractive -NoProfile -Command '
+             . '"try { [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; '
+             . '(Invoke-WebRequest -Uri \'' . $safe . '\' -UseBasicParsing -TimeoutSec ' . self::TIMEOUT . ').Content } '
+             . 'catch { Write-Output \'\' }"';
 
-        if ($err) {
-            error_log('[Fetcher] cURL error: ' . $err);
-            return array();
-        }
-        if ($code < 200 || $code >= 300) {
-            error_log('[Fetcher] HTTP ' . $code . ' URL: ' . $url);
+        $body = @shell_exec($cmd . ' 2>&1');
+
+        if (!$body || !trim($body)) {
+            error_log('[Fetcher] Sin respuesta. URL: ' . $url);
             return array();
         }
 
         $data = json_decode($body, true);
         if (!is_array($data)) {
-            error_log('[Fetcher] JSON invalido URL: ' . $url);
+            error_log('[Fetcher] JSON invalido. Inicio: ' . substr($body, 0, 200));
             return array();
         }
         return $data;
@@ -91,31 +82,37 @@ class Fetcher {
     }
 
     /**
-     * Trae todos los partidos del Mundial 2026 (11-jun al 19-jul).
-     * Itera por semanas para minimizar requests a ESPN.
+     * Trae partidos del Mundial para la ventana actual (ayer +7 dias).
+     * Usa queries de un solo dia porque el formato de rango de ESPN
+     * no filtra correctamente (devuelve rondas de eliminacion en vez
+     * de la fecha solicitada). Queries de dia unico si funcionan.
+     * 7-8 requests x 0.2s = ~1.5s, aceptable.
      */
     public static function getAllMatches() {
+        $today    = new DateTime('now', new DateTimeZone('UTC'));
+        $wcStart  = new DateTime('2026-06-11', new DateTimeZone('UTC'));
+        $wcEnd    = new DateTime('2026-07-19', new DateTimeZone('UTC'));
+
+        // Ventana: ayer hasta +6 dias (captura partidos en vivo y proximos)
+        $start = clone $today;
+        $start->modify('-1 day');
+        if ($start < $wcStart) $start = clone $wcStart;
+
+        $end = clone $today;
+        $end->modify('+6 days');
+        if ($end > $wcEnd) $end = clone $wcEnd;
+
         $all     = array();
-        $current = new DateTime('2026-06-11');
-        $end     = new DateTime('2026-07-19');
+        $current = clone $start;
 
         while ($current <= $end) {
-            $weekEnd = clone $current;
-            $weekEnd->modify('+6 days');
-            if ($weekEnd > $end) {
-                $weekEnd = clone $end;
-            }
-
-            $from    = $current->format('Ymd');
-            $to      = $weekEnd->format('Ymd');
-            $matches = self::getMatches($from, $to);
+            $day     = $current->format('Ymd');
+            $matches = self::getMatches($day, $day);
             $all     = array_merge($all, $matches);
+            $current->modify('+1 day');
 
-            $current->modify('+7 days');
-
-            // Pausa 0.25s entre requests para no saturar ESPN
             if ($current <= $end) {
-                usleep(250000);
+                usleep(200000);  // 0.2s entre requests
             }
         }
         return $all;
@@ -164,7 +161,7 @@ class Fetcher {
             $awayScore = isset($away['score']) ? (int)$away['score'] : null;
         }
 
-        // Grupo desde las notas del partido
+        // Grupo desde las notas del partido (ESPN puede incluirlo o no)
         $group = null;
         if (isset($comp['notes']) && is_array($comp['notes'])) {
             foreach ($comp['notes'] as $note) {
@@ -182,7 +179,7 @@ class Fetcher {
         if (isset($event['season']['slug'])) {
             $stageSlug = strtolower($event['season']['slug']);
         }
-        // strpos reemplaza str_contains() que requiere PHP 8.0+
+        // strpos reemplaza str_contains() (PHP 8.0+)
         if (strpos($stageSlug, 'round-of-32') !== false) $stage = 'LAST_32';
         if (strpos($stageSlug, 'round-of-16') !== false) $stage = 'LAST_16';
         if (strpos($stageSlug, 'quarter')     !== false) $stage = 'QUARTER_FINALS';
