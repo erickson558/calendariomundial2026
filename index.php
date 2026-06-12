@@ -109,6 +109,9 @@ $version = APP_VERSION;
     <button id="btn-groups"  class="tab-btn" onclick="setTab('groups')">
       🏆 <span data-i18n="tab_groups">Grupos</span>
     </button>
+    <button id="btn-leaders" class="tab-btn" onclick="setTab('leaders')">
+      📊 <span data-i18n="tab_leaders">Líderes</span>
+    </button>
   </div>
 </nav>
 
@@ -142,6 +145,11 @@ $version = APP_VERSION;
 
   <!-- ── Pestaña: Grupos ────────────────────────────────── -->
   <section id="tab-groups" style="display:none" role="tabpanel">
+    <div class="loading-overlay"><div class="spinner"></div></div>
+  </section>
+
+  <!-- ── Pestaña: Líderes ───────────────────────────────── -->
+  <section id="tab-leaders" style="display:none" role="tabpanel">
     <div class="loading-overlay"><div class="spinner"></div></div>
   </section>
 

@@ -64,5 +64,9 @@
   "close": "Close",
   "up_next": "Up Next",
   "timer_off": "Timer: Off",
-  "timer_label": "Auto-refresh"
+  "timer_label": "Auto-refresh",
+  "tab_leaders": "Leaderboard",
+  "qualify_direct": "Direct qualifier (1st or 2nd in group)",
+  "best_thirds": "Best 3rd place",
+  "no_leaders": "Leaderboard not available yet."
 }

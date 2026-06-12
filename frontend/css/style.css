@@ -595,6 +595,109 @@ button { cursor: pointer; border: none; background: none; }
   .tz-select { max-width: 140px; font-size: 0.7rem; }
 }
 
+/* ── Hora estimada de fin en tarjeta de partido ─────────── */
+.match-end-approx {
+  font-size: 0.72rem;
+  color: var(--text-3);
+  font-weight: 400;
+  margin-left: 0.3rem;
+  white-space: nowrap;
+}
+
+/* ── Pestaña Líderes — leaderboard global ───────────────── */
+.leaderboard-wrap {
+  max-width: 900px;
+  margin: 1.2rem auto;
+  padding: 0 1rem;
+}
+.lb-legend {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  font-size: 0.8rem;
+  color: var(--text-2);
+  margin-bottom: 0.85rem;
+  padding: 0.6rem 0.8rem;
+  background: var(--card-bg);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+.lb-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.1rem 0.45rem;
+  min-width: 1.6rem;
+}
+.lb-badge-direct {
+  background: var(--fifa-gold);
+  color: #000;
+}
+.lb-badge-third {
+  background: #3a6fd8;
+  color: #fff;
+}
+.lb-table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.leaderboard-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.84rem;
+}
+.leaderboard-table thead th {
+  padding: 0.5rem 0.5rem;
+  text-align: center;
+  color: var(--text-3);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.leaderboard-table thead th:nth-child(3) { text-align: left; }
+.leaderboard-table tbody tr {
+  border-bottom: 1px solid rgba(255 255 255 / 5%);
+  transition: background var(--transition);
+}
+.leaderboard-table tbody tr:hover { background: var(--card-hover); }
+.leaderboard-table td {
+  padding: 0.45rem 0.5rem;
+  text-align: center;
+  color: var(--text-2);
+  vertical-align: middle;
+}
+.leaderboard-table td:nth-child(3) { text-align: left; }
+.lb-rank {
+  color: var(--text-3);
+  font-size: 0.78rem;
+  font-weight: 600;
+  min-width: 1.8rem;
+}
+.lb-group-pill {
+  display: inline-block;
+  background: rgba(255 255 255 / 8%);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  font-size: 0.7rem;
+  font-weight: 700;
+  border-radius: 4px;
+  padding: 0.1rem 0.4rem;
+  min-width: 1.4rem;
+  text-align: center;
+}
+/* Filas en zona de clasificacion directa (top 2 por grupo) */
+tr.lb-qualify-direct { background: rgba(255 185 0 / 5%); }
+tr.lb-qualify-direct .lb-rank { color: var(--fifa-gold); }
+/* Filas en zona de mejor tercero (top 8 de 3ros) */
+tr.lb-qualify-third  { background: rgba(58 111 216 / 8%); }
+tr.lb-qualify-third  .lb-rank { color: #6699ff; }
+
 /* ── Animación de entrada de tarjetas ────────────────────── */
 @keyframes fadeSlideIn {
   from { opacity: 0; transform: translateY(12px); }

@@ -5,6 +5,17 @@ Versionado según [Semantic Versioning](https://semver.org/lang/es/) — `Vx.x.x
 
 ---
 
+## [V1.6.0] — 2026-06-12
+
+### Añadido
+- **Pestaña Líderes (📊)**: tabla global de los 48 equipos ordenada por puntos > DG > GF. Indica con badge dorado los equipos en zona de clasificación directa (top 2 de grupo) y con badge azul los potenciales mejores terceros (top 8 entre todos los 3ros, formato WC 2026). El filtro de grupos se oculta automáticamente en esta pestaña
+- **Hora estimada de fin en partidos programados**: las tarjetas de partidos `SCHEDULED` ahora muestran la hora de inicio y una hora aproximada de finalización (`~HH:MM`) calculada como inicio + 115 min (90 min + 15 entretiempo + ~10 adicionados)
+
+### Corregido
+- **Partidos atascados en "EN VIVO"**: `clearStaleLiveMatches()` marca automáticamente como `FINISHED` cualquier partido que lleve más de 2 horas desde su horario programado con estado `IN_PLAY` o `PAUSED`. Se ejecuta tanto al refrescar datos de ESPN como en cada entrega del payload (incluso en cache hit), eliminando el caso donde ESPN dejaba de devolver el partido antes de cerrarlo
+
+---
+
 ## [V1.5.0] — 2026-06-12
 
 ### Añadido

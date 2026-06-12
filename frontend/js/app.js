@@ -278,9 +278,12 @@ function renderMatchCard(match, isNext) {
       htHtml + statusBadge(match.status);
   } else {
     const localTime = TZ.time(match.match_date);
+    // Estimar hora de fin: inicio + 115 min (90 reglamento + 15 entretiempo + ~10 adicionados)
+    const endDate = new Date(new Date(match.match_date).getTime() + 115 * 60000);
+    const endTime = TZ.time(endDate.toISOString());
     scoreHtml =
       '<div class="match-date-small">' + localDate + '</div>' +
-      '<div class="match-time">' + localTime + '</div>' +
+      '<div class="match-time">' + localTime + '<span class="match-end-approx"> ~' + endTime + '</span></div>' +
       statusBadge(match.status);
   }
 
@@ -501,6 +504,126 @@ function renderGroupCard(group, rows) {
   );
 }
 
+/* ── Pestaña "Líderes" ──────────────────────────────────── */
+
+/**
+ * Tabla global de equipos ordenada por puntos > DG > GF.
+ * Indica zona de clasificacion directa (top 2 por grupo) y
+ * mejor tercero (top 8 de todos los 3ros, formato WC 2026).
+ */
+function renderLeaderboard() {
+  const container = document.getElementById('tab-leaders');
+  const standings = (State.data && State.data.standings) ? State.data.standings : {};
+  const groups    = Object.keys(standings);
+
+  if (!groups.length) {
+    container.innerHTML = '<div class="empty-state"><h3>📊</h3><p>' + I18n.t('no_leaders') + '</p></div>';
+    return;
+  }
+
+  // Aplanar todos los equipos de todos los grupos
+  const allTeams = [];
+  groups.forEach(function(g) {
+    const rows = standings[g];
+    if (!Array.isArray(rows)) return;
+    rows.forEach(function(row) {
+      allTeams.push({
+        group:           g,
+        group_pos:       row.position,           // posicion dentro del grupo (1-4)
+        name:            row.name,
+        name_es:         row.name_es,
+        name_en:         row.name_en,
+        tla:             row.tla,
+        iso_code:        row.iso_code,
+        played:          row.played,
+        won:             row.won,
+        drawn:           row.drawn,
+        lost:            row.lost,
+        goals_for:       row.goals_for,
+        goals_against:   row.goals_against,
+        goal_difference: row.goal_difference,
+        points:          row.points,
+      });
+    });
+  });
+
+  // Ordenar: puntos DESC → DG DESC → GF DESC → nombre ASC
+  allTeams.sort(function(a, b) {
+    if (b.points          !== a.points)          return b.points          - a.points;
+    if (b.goal_difference !== a.goal_difference) return b.goal_difference - a.goal_difference;
+    if (b.goals_for       !== a.goals_for)       return b.goals_for       - a.goals_for;
+    return (a.name || '').localeCompare(b.name || '');
+  });
+
+  // Identificar top-8 terceros para la zona de "mejor tercero"
+  const thirds = allTeams.filter(function(t) { return t.group_pos === 3; });
+  const top8ThirdTlas = {};
+  thirds.slice(0, 8).forEach(function(t) { top8ThirdTlas[t.tla] = true; });
+
+  const rowsHtml = allTeams.map(function(row, idx) {
+    const name    = (State.lang === 'es' ? row.name_es : row.name_en) || row.name;
+    const isDirect   = row.group_pos <= 2;
+    const isBest3rd  = row.group_pos === 3 && top8ThirdTlas[row.tla];
+    const rowClass   = isDirect ? 'lb-qualify-direct' : (isBest3rd ? 'lb-qualify-third' : '');
+    const qualBadge  = isDirect
+      ? '<span class="lb-badge lb-badge-direct">✓</span>'
+      : (isBest3rd ? '<span class="lb-badge lb-badge-third">3°</span>' : '');
+    const gdCls  = row.goal_difference > 0 ? 'positive' : (row.goal_difference < 0 ? 'negative' : '');
+    const gdPfx  = row.goal_difference > 0 ? '+' : '';
+    const flag   = row.iso_code
+      ? '<img class="st-flag" src="' + flagUrl(row.iso_code) + '" alt="' + name + '" loading="lazy" onerror="this.style.display=\'none\'">'
+      : '';
+
+    return (
+      '<tr class="' + rowClass + '">' +
+        '<td class="lb-rank">' + (idx + 1) + '</td>' +
+        '<td><span class="lb-group-pill">' + row.group + '</span></td>' +
+        '<td><div class="st-team">' + flag +
+          '<div><div class="st-name">' + name + '</div><div class="st-tla">' + row.tla + '</div></div>' +
+        '</div></td>' +
+        '<td>' + row.played         + '</td>' +
+        '<td>' + row.won            + '</td>' +
+        '<td>' + row.drawn          + '</td>' +
+        '<td>' + row.lost           + '</td>' +
+        '<td>' + row.goals_for      + '</td>' +
+        '<td>' + row.goals_against  + '</td>' +
+        '<td class="gd-cell ' + gdCls + '">' + gdPfx + row.goal_difference + '</td>' +
+        '<td class="pts-cell"><strong>' + row.points + '</strong></td>' +
+        '<td>' + qualBadge + '</td>' +
+      '</tr>'
+    );
+  }).join('');
+
+  container.innerHTML = (
+    '<div class="leaderboard-wrap">' +
+      '<div class="lb-legend">' +
+        '<span class="lb-badge lb-badge-direct">✓</span> ' + I18n.t('qualify_direct') +
+        ' &nbsp;·&nbsp; ' +
+        '<span class="lb-badge lb-badge-third">3°</span> ' + I18n.t('best_thirds') +
+      '</div>' +
+      '<div class="lb-table-scroll">' +
+        '<table class="standings-table leaderboard-table">' +
+          '<thead><tr>' +
+            '<th>#</th>' +
+            '<th>' + I18n.t('group') + '</th>' +
+            '<th>' + I18n.t('team')  + '</th>' +
+            '<th>' + I18n.t('played') + '</th>' +
+            '<th>' + I18n.t('won')    + '</th>' +
+            '<th>' + I18n.t('drawn')  + '</th>' +
+            '<th>' + I18n.t('lost')   + '</th>' +
+            '<th>' + I18n.t('goals_for') + '</th>' +
+            '<th>' + I18n.t('goals_against') + '</th>' +
+            '<th>' + I18n.t('goal_diff') + '</th>' +
+            '<th>' + I18n.t('points') + '</th>' +
+            '<th></th>' +
+          '</tr></thead>' +
+          '<tbody>' + rowsHtml + '</tbody>' +
+        '</table>' +
+      '</div>' +
+    '</div>'
+  );
+}
+
 /* ── Controles del header ────────────────────────────────── */
 
 /** Pobla el select de zonas horarias organizado por pais */
@@ -547,7 +670,7 @@ function updateDemoBanner() {
 /* ── Pestaña activa ─────────────────────────────────────── */
 
 function renderCurrentTab() {
-  ['today', 'matches', 'groups'].forEach(function(t) {
+  ['today', 'matches', 'groups', 'leaders'].forEach(function(t) {
     document.getElementById('tab-' + t).style.display = State.tab === t ? 'block' : 'none';
     document.getElementById('btn-' + t).classList.toggle('active', State.tab === t);
   });
@@ -555,6 +678,11 @@ function renderCurrentTab() {
   if (State.tab === 'today')   renderToday();
   if (State.tab === 'matches') renderAllMatches();
   if (State.tab === 'groups')  renderGroups();
+  if (State.tab === 'leaders') renderLeaderboard();
+
+  // Ocultar filtro de grupos en la pestaña Lideres (muestra todos por definicion)
+  const filterBar = document.getElementById('group-filters');
+  if (filterBar) filterBar.style.display = State.tab === 'leaders' ? 'none' : '';
 
   updateLastUpdatedBar();
   updateDemoBanner();
@@ -753,7 +881,7 @@ async function init() {
   });
 
   // Spinner mientras carga
-  ['today','matches','groups'].forEach(function(t) {
+  ['today','matches','groups','leaders'].forEach(function(t) {
     const el = document.getElementById('tab-' + t);
     if (el) el.innerHTML = '<div class="loading-overlay"><div class="spinner"></div></div>';
   });

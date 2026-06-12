@@ -53,6 +53,8 @@ class DataService {
 
         // Sin datos de ESPN: marcar como demo y mantener datos sembrados
         if (empty($matches)) {
+            // Aun sin ESPN, limpiar partidos que llevan demasiado tiempo "en vivo"
+            Database::clearStaleLiveMatches();
             Database::setSetting('is_demo', '1');
             Database::setSetting('last_updated', date('c'));
             return false;
@@ -81,6 +83,8 @@ class DataService {
             Database::upsertStanding($row, $group, $teamIdx);
         }
 
+        // Cerrar partidos que llevan >2h en vivo sin resultado (ESPN puede haberlos omitido)
+        Database::clearStaleLiveMatches();
         Database::setSetting('last_updated', date('c'));
         return true;
     }
@@ -170,6 +174,10 @@ class DataService {
      * indicador de vivos, metadata de estado.
      */
     public static function buildPayload($group) {
+        // Limpiar partidos estancados cada vez que se sirve el payload,
+        // incluso si el cache aun es valido y no se consulto ESPN.
+        Database::clearStaleLiveMatches();
+
         $today     = self::getTodayMatches();
         $all       = self::getMatchesGrouped($group);
         $standings = self::getGroupStandings();

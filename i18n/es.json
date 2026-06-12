@@ -64,5 +64,9 @@
   "close": "Cerrar",
   "up_next": "Próximo Partido",
   "timer_off": "Timer: Apagado",
-  "timer_label": "Auto-actualizar"
+  "timer_label": "Auto-actualizar",
+  "tab_leaders": "Líderes",
+  "qualify_direct": "Clasifica directo (1° ó 2° de grupo)",
+  "best_thirds": "Mejor 3° clasificado",
+  "no_leaders": "Tabla de líderes no disponible aún."
 }

@@ -416,6 +416,21 @@ class Database {
         )->execute(array($key, $value));
     }
 
+    /**
+     * Marca como FINISHED partidos que llevan >2h en IN_PLAY/PAUSED.
+     * Evita que un partido quede "en vivo" para siempre si ESPN deja
+     * de devolverlo en el scoreboard (el partido ya termino pero la
+     * ultima actualizacion fue antes de que ESPN lo cerrara).
+     */
+    public static function clearStaleLiveMatches() {
+        $db = self::connect();
+        $db->exec(
+            "UPDATE matches SET status = 'FINISHED', last_updated = datetime('now')
+             WHERE status IN ('IN_PLAY','PAUSED')
+             AND datetime(match_date) < datetime('now', '-2 hours')"
+        );
+    }
+
     // ── Consultas de Equipos ─────────────────────────────
 
     /**
