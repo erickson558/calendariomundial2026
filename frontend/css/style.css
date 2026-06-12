@@ -201,7 +201,7 @@ button { cursor: pointer; border: none; background: none; }
 .tab-btn {
   color: var(--text-2);
   padding: 0.75rem 1.5rem;
-  font-size: 0.9rem;
+  font-size: 1rem;
   font-weight: 600;
   border-bottom: 3px solid transparent;
   transition: var(--transition);
@@ -265,13 +265,13 @@ button { cursor: pointer; border: none; background: none; }
   border-bottom: 1px solid var(--border);
 }
 .date-label {
-  font-size: 0.9rem;
+  font-size: 1rem;
   font-weight: 700;
   color: var(--text-1);
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
-.date-sub { font-size: 0.75rem; color: var(--text-3); margin-left: auto; }
+.date-sub { font-size: 0.82rem; color: var(--text-3); margin-left: auto; }
 
 /* ── Tarjeta de partido ──────────────────────────────────── */
 .match-card {
@@ -337,7 +337,7 @@ button { cursor: pointer; border: none; background: none; }
   font-size: 0.6rem; color: var(--text-3);
 }
 .team-name {
-  font-size: 0.9rem;
+  font-size: 1.05rem;
   font-weight: 700;
   color: var(--text-1);
 }
@@ -349,7 +349,7 @@ button { cursor: pointer; border: none; background: none; }
   gap: 0.2rem; min-width: 90px;
 }
 .score-main {
-  font-size: 1.5rem; font-weight: 800;
+  font-size: 1.9rem; font-weight: 800;
   color: var(--text-1);
   letter-spacing: 0.05em;
 }
@@ -360,11 +360,11 @@ button { cursor: pointer; border: none; background: none; }
   border-radius: 4px; padding: 0.1rem 0.4rem;
 }
 .match-time {
-  font-size: 0.8rem; font-weight: 700;
+  font-size: 0.9rem; font-weight: 700;
   color: var(--fifa-gold);
 }
 .match-status-badge {
-  font-size: 0.65rem;
+  font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -424,17 +424,17 @@ button { cursor: pointer; border: none; background: none; }
   display: flex; align-items: center; justify-content: center;
   border-radius: 6px;
 }
-.group-title { font-weight: 700; font-size: 0.9rem; }
+.group-title { font-weight: 700; font-size: 1rem; }
 .standings-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.82rem;
+  font-size: 0.9rem;
 }
 .standings-table th {
   padding: 0.4rem 0.5rem;
   color: var(--text-3);
   font-weight: 600;
-  font-size: 0.7rem;
+  font-size: 0.76rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   text-align: center;
@@ -580,9 +580,9 @@ button { cursor: pointer; border: none; background: none; }
 
 /* ── Responsive ─────────────────────────────────────────── */
 @media (max-width: 640px) {
-  .team-name { font-size: 0.78rem; }
-  .score-main { font-size: 1.2rem; }
-  .tab-btn { padding: 0.65rem 0.9rem; font-size: 0.82rem; }
+  .team-name { font-size: 0.92rem; }
+  .score-main { font-size: 1.5rem; }
+  .tab-btn { padding: 0.65rem 0.9rem; font-size: 0.9rem; }
   .groups-grid { grid-template-columns: 1fr; }
   .header-actions { gap: 0.35rem; }
   .btn-beer span { display: none; }
@@ -648,13 +648,13 @@ button { cursor: pointer; border: none; background: none; }
 .leaderboard-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.84rem;
+  font-size: 0.92rem;
 }
 .leaderboard-table thead th {
   padding: 0.5rem 0.5rem;
   text-align: center;
   color: var(--text-3);
-  font-size: 0.72rem;
+  font-size: 0.78rem;
   font-weight: 600;
   text-transform: uppercase;
   border-bottom: 1px solid var(--border);
