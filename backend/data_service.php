@@ -85,6 +85,9 @@ class DataService {
 
         // Cerrar partidos que llevan >2h en vivo sin resultado (ESPN puede haberlos omitido)
         Database::clearStaleLiveMatches();
+        // Recalcular standings desde resultados propios: el endpoint de standings
+        // de ESPN frecuentemente no devuelve datos al inicio del torneo.
+        Database::recalculateStandingsFromMatches();
         Database::setSetting('last_updated', date('c'));
         return true;
     }

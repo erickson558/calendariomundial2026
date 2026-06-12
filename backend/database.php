@@ -431,6 +431,70 @@ class Database {
         );
     }
 
+    // ── Recalculo de Posiciones ───────────────────────────
+
+    /**
+     * Recalcula la tabla de posiciones a partir de los partidos FINISHED
+     * almacenados en la DB. Se llama siempre despues de sincronizar con ESPN
+     * porque su endpoint de standings frecuentemente no retorna datos en la
+     * fase inicial del torneo.
+     */
+    public static function recalculateStandingsFromMatches() {
+        $db = self::connect();
+
+        // Reiniciar stats a 0 preservando equipo, grupo y posicion
+        $db->exec("UPDATE standings SET played=0, won=0, drawn=0, lost=0, goals_for=0, goals_against=0, goal_difference=0, points=0");
+
+        // Obtener todos los partidos de fase de grupos finalizados con marcador
+        $stmt = $db->query(
+            "SELECT home_team_id, away_team_id, home_score, away_score
+             FROM matches
+             WHERE status='FINISHED' AND stage='GROUP_STAGE'
+             AND home_score IS NOT NULL AND away_score IS NOT NULL"
+        );
+
+        $updBase = $db->prepare("UPDATE standings SET played=played+1, goals_for=goals_for+?, goals_against=goals_against+? WHERE team_id=?");
+        $updWin  = $db->prepare("UPDATE standings SET won=won+1,   points=points+3 WHERE team_id=?");
+        $updDraw = $db->prepare("UPDATE standings SET drawn=drawn+1, points=points+1 WHERE team_id=?");
+        $updLoss = $db->prepare("UPDATE standings SET lost=lost+1               WHERE team_id=?");
+
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $m) {
+            $hId = (int)$m['home_team_id'];
+            $aId = (int)$m['away_team_id'];
+            $hG  = (int)$m['home_score'];
+            $aG  = (int)$m['away_score'];
+
+            $updBase->execute(array($hG, $aG, $hId));
+            $updBase->execute(array($aG, $hG, $aId));
+
+            if ($hG > $aG) {
+                $updWin->execute(array($hId));  $updLoss->execute(array($aId));
+            } elseif ($hG === $aG) {
+                $updDraw->execute(array($hId)); $updDraw->execute(array($aId));
+            } else {
+                $updLoss->execute(array($hId)); $updWin->execute(array($aId));
+            }
+        }
+
+        // Sincronizar diferencia de goles
+        $db->exec("UPDATE standings SET goal_difference = goals_for - goals_against");
+
+        // Re-rankear dentro de cada grupo: pts DESC → dg DESC → gf DESC
+        $groups = $db->query(
+            "SELECT DISTINCT group_name FROM standings WHERE group_name IS NOT NULL ORDER BY group_name"
+        )->fetchAll(PDO::FETCH_COLUMN);
+
+        $updPos = $db->prepare("UPDATE standings SET position=? WHERE team_id=? AND group_name=?");
+        $selPos = $db->prepare("SELECT team_id FROM standings WHERE group_name=? ORDER BY points DESC, goal_difference DESC, goals_for DESC");
+
+        foreach ($groups as $grp) {
+            $selPos->execute(array($grp));
+            foreach ($selPos->fetchAll(PDO::FETCH_COLUMN) as $pos => $teamId) {
+                $updPos->execute(array($pos + 1, $teamId, $grp));
+            }
+        }
+    }
+
     // ── Consultas de Equipos ─────────────────────────────
 
     /**

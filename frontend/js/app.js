@@ -560,11 +560,14 @@ function renderLeaderboard() {
   const top8ThirdTlas = {};
   thirds.slice(0, 8).forEach(function(t) { top8ThirdTlas[t.tla] = true; });
 
+  const MEDALS = ['🥇', '🥈', '🥉'];
+
   const rowsHtml = allTeams.map(function(row, idx) {
     const name    = (State.lang === 'es' ? row.name_es : row.name_en) || row.name;
     const isDirect   = row.group_pos <= 2;
     const isBest3rd  = row.group_pos === 3 && top8ThirdTlas[row.tla];
-    const rowClass   = isDirect ? 'lb-qualify-direct' : (isBest3rd ? 'lb-qualify-third' : '');
+    const topClass   = idx < 3 ? ' lb-top-' + (idx + 1) : '';
+    const rowClass   = (isDirect ? 'lb-qualify-direct' : (isBest3rd ? 'lb-qualify-third' : '')) + topClass;
     const qualBadge  = isDirect
       ? '<span class="lb-badge lb-badge-direct">✓</span>'
       : (isBest3rd ? '<span class="lb-badge lb-badge-third">3°</span>' : '');
@@ -573,10 +576,13 @@ function renderLeaderboard() {
     const flag   = row.iso_code
       ? '<img class="st-flag" src="' + flagUrl(row.iso_code) + '" alt="' + name + '" loading="lazy" onerror="this.style.display=\'none\'">'
       : '';
+    const rankDisplay = idx < 3
+      ? '<span class="lb-medal">' + MEDALS[idx] + '</span>'
+      : (idx + 1);
 
     return (
       '<tr class="' + rowClass + '">' +
-        '<td class="lb-rank">' + (idx + 1) + '</td>' +
+        '<td class="lb-rank">' + rankDisplay + '</td>' +
         '<td><span class="lb-group-pill">' + row.group + '</span></td>' +
         '<td><div class="st-team">' + flag +
           '<div><div class="st-name">' + name + '</div><div class="st-tla">' + row.tla + '</div></div>' +

@@ -378,12 +378,12 @@ button { cursor: pointer; border: none; background: none; }
 .badge-postponed { background: rgba(150 150 150 / 15%); color: var(--text-3); }
 
 .match-meta {
-  font-size: 0.7rem; color: var(--text-3);
+  font-size: 0.82rem; color: var(--text-3);
   display: flex; align-items: center; gap: 0.3rem;
 }
 .match-date-small {
-  font-size: 0.68rem; color: var(--text-3);
-  text-transform: uppercase; letter-spacing: 0.08em;
+  font-size: 0.82rem; color: var(--text-3);
+  text-transform: uppercase; letter-spacing: 0.06em;
   margin-bottom: 0.05rem;
 }
 
@@ -597,7 +597,7 @@ button { cursor: pointer; border: none; background: none; }
 
 /* ── Hora estimada de fin en tarjeta de partido ─────────── */
 .match-end-approx {
-  font-size: 0.72rem;
+  font-size: 0.82rem;
   color: var(--text-3);
   font-weight: 400;
   margin-left: 0.3rem;
@@ -697,6 +697,15 @@ tr.lb-qualify-direct .lb-rank { color: var(--fifa-gold); }
 /* Filas en zona de mejor tercero (top 8 de 3ros) */
 tr.lb-qualify-third  { background: rgba(58 111 216 / 8%); }
 tr.lb-qualify-third  .lb-rank { color: #6699ff; }
+
+/* Top 3 global del leaderboard con borde izquierdo podio */
+tr.lb-top-1 td:first-child { border-left: 3px solid #FFD700; }
+tr.lb-top-2 td:first-child { border-left: 3px solid #C0C0C0; }
+tr.lb-top-3 td:first-child { border-left: 3px solid #CD7F32; }
+tr.lb-top-1 { background: rgba(255 215 0 / 7%) !important; }
+tr.lb-top-2 { background: rgba(192 192 192 / 6%) !important; }
+tr.lb-top-3 { background: rgba(205 127 50 / 6%) !important; }
+.lb-medal { font-size: 1.1rem; }
 
 /* ── Animación de entrada de tarjetas ────────────────────── */
 @keyframes fadeSlideIn {
