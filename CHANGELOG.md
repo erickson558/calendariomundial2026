@@ -5,6 +5,16 @@ Versionado según [Semantic Versioning](https://semver.org/lang/es/) — `Vx.x.x
 
 ---
 
+## [V1.7.0] — 2026-06-13
+
+### Corregido
+- **Partido incorrecto en pestaña Hoy**: el backend filtraba por fecha UTC, por lo que un partido jugado a las 19:00 CST (= 01:00 UTC del día siguiente) aparecía en "Hoy" aunque localmente ya era de ayer. Ahora `renderToday()` filtra por fecha LOCAL del usuario usando `TZ.localDateKey`, consistente con la vista "Todos los Partidos"
+
+### Añadido
+- **Header + pestañas pegados al tope**: el header y la barra de navegación (Hoy / Todos los Partidos / Grupos / Líderes) ahora permanecen visibles al hacer scroll, envueltos en un único contenedor `sticky-top-bar`
+
+---
+
 ## [V1.6.0] — 2026-06-12
 
 ### Añadido

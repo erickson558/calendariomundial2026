@@ -343,8 +343,17 @@ function toggleMatchDetail(el) { el.classList.toggle('expanded'); }
 
 function renderToday() {
   const container = document.getElementById('tab-today');
-  // Incluir partidos de hoy + partidos en vivo (pueden ser de ayer en UTC)
-  const todayMatches = (State.data && State.data.today) ? State.data.today : [];
+  const allToday = (State.data && State.data.today) ? State.data.today : [];
+
+  // El backend filtra por UTC, pero el usuario puede estar en otra zona horaria.
+  // Un partido a las 19:00 CST es 01:00 UTC del dia siguiente, por lo que el backend
+  // lo incluye en "hoy UTC" cuando para el usuario local fue "ayer".
+  // Filtramos por fecha LOCAL del usuario para corregir este desfase.
+  const todayKey = TZ.localDateKey(new Date().toISOString());
+  const todayMatches = allToday.filter(function(m) {
+    const isLive = m.status === 'IN_PLAY' || m.status === 'PAUSED';
+    return isLive || TZ.localDateKey(m.match_date) === todayKey;
+  });
 
   // Ordenar cronologicamente por hora del partido
   const sorted = todayMatches.slice().sort(function(a, b) {

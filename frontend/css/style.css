@@ -34,13 +34,19 @@ body {
 img { display: block; max-width: 100%; }
 button { cursor: pointer; border: none; background: none; }
 
+/* ── Wrapper sticky: header + nav siempre visibles al scroll ── */
+.sticky-top-bar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: var(--shadow);
+}
+
 /* ── Header ─────────────────────────────────────────────── */
 .site-header {
   background: linear-gradient(135deg, #0A0A18 0%, #1a0000 50%, #0A0A18 100%);
   border-bottom: 2px solid var(--fifa-gold);
   padding: 0 1rem;
-  position: sticky; top: 0; z-index: 100;
-  box-shadow: var(--shadow);
 }
 .header-inner {
   max-width: 1200px; margin: 0 auto;
@@ -187,7 +193,7 @@ button { cursor: pointer; border: none; background: none; }
 
 /* ── Navegación de pestañas ─────────────────────────────── */
 .tab-nav {
-  background: rgba(0 0 0 / 30%);
+  background: #0f0f1e;
   border-bottom: 1px solid var(--border);
   display: flex; overflow-x: auto;
   scrollbar-width: none;

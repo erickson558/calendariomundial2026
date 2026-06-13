@@ -34,6 +34,9 @@ $version = APP_VERSION;
 </head>
 <body>
 
+<!-- ── Header + Nav pegados al tope (sticky juntos) ──── -->
+<div class="sticky-top-bar">
+
 <!-- ── Header ──────────────────────────────────────────── -->
 <header class="site-header" role="banner">
   <div class="header-inner">
@@ -114,6 +117,8 @@ $version = APP_VERSION;
     </button>
   </div>
 </nav>
+
+</div><!-- /.sticky-top-bar -->
 
 <!-- ── Contenido principal ──────────────────────────────── -->
 <main class="main-content" role="main">
