@@ -343,14 +343,18 @@ function toggleMatchDetail(el) { el.classList.toggle('expanded'); }
 
 function renderToday() {
   const container = document.getElementById('tab-today');
-  const allToday = (State.data && State.data.today) ? State.data.today : [];
 
-  // El backend filtra por UTC, pero el usuario puede estar en otra zona horaria.
-  // Un partido a las 19:00 CST es 01:00 UTC del dia siguiente, por lo que el backend
-  // lo incluye en "hoy UTC" cuando para el usuario local fue "ayer".
-  // Filtramos por fecha LOCAL del usuario para corregir este desfase.
-  const todayKey = TZ.localDateKey(new Date().toISOString());
-  const todayMatches = allToday.filter(function(m) {
+  // El backend filtra "hoy" por fecha UTC, lo que hace que partidos nocturnos
+  // (p.ej. 19:00 CST = 01:00 UTC siguiente dia) queden excluidos del array `today`.
+  // Solucion: extraer TODOS los partidos de `all` y filtrar por fecha LOCAL del usuario.
+  const todayKey   = TZ.localDateKey(new Date().toISOString());
+  const allGrouped = (State.data && State.data.all) ? State.data.all : {};
+  const allFlat    = [];
+  Object.values(allGrouped).forEach(function(dayArr) {
+    if (Array.isArray(dayArr)) dayArr.forEach(function(m) { allFlat.push(m); });
+  });
+
+  const todayMatches = allFlat.filter(function(m) {
     const isLive = m.status === 'IN_PLAY' || m.status === 'PAUSED';
     return isLive || TZ.localDateKey(m.match_date) === todayKey;
   });
